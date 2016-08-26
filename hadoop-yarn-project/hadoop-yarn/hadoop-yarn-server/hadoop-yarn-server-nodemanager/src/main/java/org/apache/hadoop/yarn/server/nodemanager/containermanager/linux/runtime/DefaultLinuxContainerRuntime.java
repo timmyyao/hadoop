@@ -26,6 +26,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.linux.privileged.PrivilegedOperation;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.linux.privileged.PrivilegedOperationException;
@@ -147,5 +148,10 @@ public class DefaultLinuxContainerRuntime implements LinuxContainerRuntime {
   public void reapContainer(ContainerRuntimeContext ctx)
       throws ContainerExecutionException {
 
+  }
+
+  @Override
+  public String[] getIpAndHost(Container container) {
+    return ContainerExecutor.getLocalIpAndHost(container);
   }
 }

@@ -1039,6 +1039,7 @@ implements ByteBufferReadable, CanSetDropBehind, CanSetReadahead,
           // index to get storage type.
           if (storageTypes != null && i < storageTypes.length) {
             storageType = storageTypes[i];
+	    DFSClient.LOG.info("");
           }
           break;
         }
@@ -1054,6 +1055,8 @@ implements ByteBufferReadable, CanSetDropBehind, CanSetReadahead,
     if (DFSClient.LOG.isDebugEnabled()) {
       DFSClient.LOG.debug("Connecting to datanode " + dnAddr);
     }
+    DFSClient.LOG.info("DFSInputStream: getBestNodeDNAddrPair: client = " + dfsClient.clientName +
+         "; chosenNode = " + chosenNode.getHostName() + "; StorageType = " + storageType.toString());
     InetSocketAddress targetAddr = NetUtils.createSocketAddr(dnAddr);
     return new DNAddrPair(chosenNode, targetAddr, storageType);
   }

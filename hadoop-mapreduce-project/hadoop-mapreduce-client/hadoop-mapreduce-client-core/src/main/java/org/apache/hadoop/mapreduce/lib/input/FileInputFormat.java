@@ -78,6 +78,8 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
     "mapreduce.input.fileinputformat.input.dir.recursive";
   public static final String LIST_STATUS_NUM_THREADS =
       "mapreduce.input.fileinputformat.list-status.num-threads";
+  public static final String CHOOSE_STORAGE_TYPE =
+      "mapreduce.input.choose.storage.type";
   public static final int DEFAULT_LIST_STATUS_NUM_THREADS = 1;
 
   private static final Log LOG = LogFactory.getLog(FileInputFormat.class);

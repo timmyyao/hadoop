@@ -20,6 +20,8 @@ package org.apache.hadoop.mapreduce.lib.input;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 
 import java.util.concurrent.TimeUnit;
@@ -28,13 +30,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
-import org.apache.hadoop.fs.BlockLocation;
-import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.mapred.LocatedFileStatusFetcher;
 import org.apache.hadoop.mapreduce.InputFormat;
 import org.apache.hadoop.mapreduce.InputSplit;
@@ -78,6 +74,8 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
     "mapreduce.input.fileinputformat.input.dir.recursive";
   public static final String LIST_STATUS_NUM_THREADS =
       "mapreduce.input.fileinputformat.list-status.num-threads";
+  public static final String CHOOSE_STORAGE_TYPE =
+      "mapreduce.input.choose.storage.type";
   public static final int DEFAULT_LIST_STATUS_NUM_THREADS = 1;
 
   private static final Log LOG = LogFactory.getLog(FileInputFormat.class);
@@ -95,6 +93,69 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
         return !name.startsWith("_") && !name.startsWith("."); 
       }
     }; 
+
+  private static class HostWithStorageType implements Comparable<HostWithStorageType>{
+    private String host;
+    private StorageType storageType;
+    private Boolean isInMemory;
+
+    public HostWithStorageType(String host, StorageType storageType, Boolean isInMemory) {
+      this.host = host;
+      this.storageType = storageType;
+      this.isInMemory = isInMemory;
+    }
+
+    public String getHost() {
+      return host;
+    }
+
+    public StorageType getStorageType() {
+      return storageType;
+    }
+
+    public Boolean isInMemory() {
+      return isInMemory;
+    }
+
+    public static HostWithStorageType[] convertToHostWithStorageTypeArray(
+        String[] hosts, StorageType[] storageTypes, String[] cachedHosts) {
+      if (hosts == null || storageTypes == null || hosts.length != storageTypes.length) {
+        return new HostWithStorageType[0];
+      }
+      HostWithStorageType[] retVal = new HostWithStorageType[hosts.length];
+      for (int index = 0; index < hosts.length; index ++) {
+        Boolean isCached = false;
+        for (String cachedHost : cachedHosts) {
+          if (cachedHost.equals(hosts[index])) {
+            isCached = true;
+            break;
+          }
+        }
+        retVal[index] = new HostWithStorageType(hosts[index], storageTypes[index], isCached);
+      }
+      return retVal;
+    }
+
+    @Override
+    public int compareTo(HostWithStorageType other) {
+      if (!this.isInMemory && !other.isInMemory) {
+        return storageType.compareTo(other.storageType);
+      }
+      return -isInMemory.compareTo(other.isInMemory);
+    }
+  }
+
+  // Sort hosts according to their storage type and cache status
+  public static String[] sortHostsByStorage(String[] hosts, StorageType[] storageTypes, String[] cachedHosts) {
+    HostWithStorageType[] hostsWithStorageType =
+        HostWithStorageType.convertToHostWithStorageTypeArray(hosts, storageTypes, cachedHosts);
+    Arrays.sort(hostsWithStorageType);
+    String[] hostsWithOrder = new String[hostsWithStorageType.length];
+    for(int index = 0; index < hostsWithStorageType.length; index ++) {
+      hostsWithOrder[index] = hostsWithStorageType[index].getHost();
+    }
+    return hostsWithOrder;
+  }
 
   /**
    * Proxy PathFilter that accepts a path only if all filters given in the
@@ -378,6 +439,13 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
     return new FileSplit(file, start, length, hosts, inMemoryHosts);
   }
 
+  protected FileSplit makeSplit(Path file, long start, long length,
+                                String[] hosts, String[] inMemoryHosts, BlockLocation blkLocation) {
+    StorageType[] storageTypes = blkLocation.getStorageTypes();
+    String[] orderedHosts = sortHostsByStorage(hosts, storageTypes, inMemoryHosts);
+    return new FileSplit(file, start, length, orderedHosts, inMemoryHosts);
+  }
+
   /** 
    * Generate the list of files and make them into FileSplits.
    * @param job the job context
@@ -411,7 +479,7 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
             int blkIndex = getBlockIndex(blkLocations, length-bytesRemaining);
             splits.add(makeSplit(path, length-bytesRemaining, splitSize,
                         blkLocations[blkIndex].getHosts(),
-                        blkLocations[blkIndex].getCachedHosts()));
+                        blkLocations[blkIndex].getCachedHosts(),blkLocations[blkIndex]));
             bytesRemaining -= splitSize;
           }
 
@@ -419,7 +487,7 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
             int blkIndex = getBlockIndex(blkLocations, length-bytesRemaining);
             splits.add(makeSplit(path, length-bytesRemaining, bytesRemaining,
                        blkLocations[blkIndex].getHosts(),
-                       blkLocations[blkIndex].getCachedHosts()));
+                       blkLocations[blkIndex].getCachedHosts(),blkLocations[blkIndex]));
           }
         } else { // not splitable
           if (LOG.isDebugEnabled()) {
@@ -430,7 +498,7 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
             }
           }
           splits.add(makeSplit(path, 0, length, blkLocations[0].getHosts(),
-                      blkLocations[0].getCachedHosts()));
+                      blkLocations[0].getCachedHosts(),blkLocations[0]));
         }
       } else { 
         //Create empty hosts array for zero length files

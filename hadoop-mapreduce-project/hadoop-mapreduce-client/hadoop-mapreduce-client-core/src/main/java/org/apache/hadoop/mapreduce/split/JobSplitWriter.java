@@ -190,6 +190,9 @@ public class JobSplitWriter {
     WritableUtils.writeVInt(out, splitMetaInfoVersion);
     WritableUtils.writeVInt(out, allSplitMetaInfo.length);
     for (JobSplit.SplitMetaInfo splitMetaInfo : allSplitMetaInfo) {
+      for(String location : splitMetaInfo.getLocations()) {
+        LOG.info("Job split metainfo : " + location);
+      }
       splitMetaInfo.write(out);
     }
     out.close();

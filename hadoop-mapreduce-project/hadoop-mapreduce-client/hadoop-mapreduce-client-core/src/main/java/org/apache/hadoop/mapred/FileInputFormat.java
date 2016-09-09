@@ -34,13 +34,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.fs.BlockLocation;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
-import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.mapreduce.security.TokenCache;
 import org.apache.hadoop.net.NetworkTopology;
 import org.apache.hadoop.net.Node;
@@ -334,6 +328,8 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
     long goalSize = totalSize / (numSplits == 0 ? 1 : numSplits);
     long minSize = Math.max(job.getLong(org.apache.hadoop.mapreduce.lib.input.
       FileInputFormat.SPLIT_MINSIZE, 1), minSplitSize);
+    boolean chooseStorageType = job.getBoolean(org.apache.hadoop.mapreduce.lib.
+      input.FileInputFormat.CHOOSE_STORAGE_TYPE, true);
 
     // generate splits
     ArrayList<FileSplit> splits = new ArrayList<FileSplit>(numSplits);
@@ -356,7 +352,7 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
           long bytesRemaining = length;
           while (((double) bytesRemaining)/splitSize > SPLIT_SLOP) {
             String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations,
-                length-bytesRemaining, splitSize, clusterMap);
+                length-bytesRemaining, splitSize, clusterMap, chooseStorageType);
             splits.add(makeSplit(path, length-bytesRemaining, splitSize,
                 splitHosts[0], splitHosts[1]));
             bytesRemaining -= splitSize;
@@ -364,7 +360,7 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
 
           if (bytesRemaining != 0) {
             String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations, length
-                - bytesRemaining, bytesRemaining, clusterMap);
+                - bytesRemaining, bytesRemaining, clusterMap, chooseStorageType);
             splits.add(makeSplit(path, length - bytesRemaining, bytesRemaining,
                 splitHosts[0], splitHosts[1]));
           }
@@ -376,7 +372,7 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
                   + "is possible: " + file.getPath());
             }
           }
-          String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations,0,length,clusterMap);
+          String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations,0,length,clusterMap,chooseStorageType);
           splits.add(makeSplit(path, 0, length, splitHosts[0], splitHosts[1]));
         }
       } else { 
@@ -689,7 +685,116 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
     return new String[][] { identifyHosts(allTopos.length, racksMap),
         new String[0]};
   }
-  
+
+  private String[][] getSplitHostsAndCachedHosts(BlockLocation[] blkLocations,
+      long offset, long splitSize, NetworkTopology clusterMap, boolean chooseStorageType)
+  throws IOException {
+
+    int startIndex = getBlockIndex(blkLocations, offset);
+
+    long bytesInThisBlock = blkLocations[startIndex].getOffset() +
+            blkLocations[startIndex].getLength() - offset;
+
+    //If this is the only block, just return
+    if (bytesInThisBlock >= splitSize) {
+      StorageType[] storageTypes = blkLocations[startIndex].getStorageTypes();
+      String[] hosts = blkLocations[startIndex].getHosts();
+      String[] inMemoryHosts = blkLocations[startIndex].getCachedHosts();
+      String[] orderedHosts = org.apache.hadoop.mapreduce.lib.input.FileInputFormat.sortHostsByStorage(
+          hosts, storageTypes, inMemoryHosts);
+
+      return new String[][] { orderedHosts, inMemoryHosts};
+    }
+
+    long bytesInFirstBlock = bytesInThisBlock;
+    int index = startIndex + 1;
+    splitSize -= bytesInThisBlock;
+
+    while (splitSize > 0) {
+      bytesInThisBlock =
+              Math.min(splitSize, blkLocations[index++].getLength());
+      splitSize -= bytesInThisBlock;
+    }
+
+    long bytesInLastBlock = bytesInThisBlock;
+    int endIndex = index - 1;
+
+    Map <Node,NodeInfo> hostsMap = new IdentityHashMap<Node,NodeInfo>();
+    Map <Node,NodeInfo> racksMap = new IdentityHashMap<Node,NodeInfo>();
+    String [] allTopos = new String[0];
+
+    // Build the hierarchy and aggregate the contribution of
+    // bytes at each level. See TestGetSplitHosts.java
+
+    for (index = startIndex; index <= endIndex; index++) {
+
+      // Establish the bytes in this block
+      if (index == startIndex) {
+        bytesInThisBlock = bytesInFirstBlock;
+      }
+      else if (index == endIndex) {
+        bytesInThisBlock = bytesInLastBlock;
+      }
+      else {
+        bytesInThisBlock = blkLocations[index].getLength();
+      }
+
+      allTopos = blkLocations[index].getTopologyPaths();
+
+      // If no topology information is available, just
+      // prefix a fakeRack
+      if (allTopos.length == 0) {
+        allTopos = fakeRacks(blkLocations, index);
+      }
+
+      // NOTE: This code currently works only for one level of
+      // hierarchy (rack/host). However, it is relatively easy
+      // to extend this to support aggregation at different
+      // levels
+
+      for (String topo: allTopos) {
+
+        Node node, parentNode;
+        NodeInfo nodeInfo, parentNodeInfo;
+
+        node = clusterMap.getNode(topo);
+
+        if (node == null) {
+          node = new NodeBase(topo);
+          clusterMap.add(node);
+        }
+
+        nodeInfo = hostsMap.get(node);
+
+        if (nodeInfo == null) {
+          nodeInfo = new NodeInfo(node);
+          hostsMap.put(node,nodeInfo);
+          parentNode = node.getParent();
+          parentNodeInfo = racksMap.get(parentNode);
+          if (parentNodeInfo == null) {
+            parentNodeInfo = new NodeInfo(parentNode);
+            racksMap.put(parentNode,parentNodeInfo);
+          }
+          parentNodeInfo.addLeaf(nodeInfo);
+        }
+        else {
+          nodeInfo = hostsMap.get(node);
+          parentNode = node.getParent();
+          parentNodeInfo = racksMap.get(parentNode);
+        }
+
+        nodeInfo.addValue(index, bytesInThisBlock);
+        parentNodeInfo.addValue(index, bytesInThisBlock);
+
+      } // for all topos
+
+    } // for all indices
+
+    // We don't yet support cached hosts when bytesInThisBlock > splitSize
+    return new String[][] { identifyHosts(allTopos.length, racksMap),
+            new String[0]};
+  }
+
   private String[] identifyHosts(int replicationFactor, 
                                  Map<Node,NodeInfo> racksMap) {
     

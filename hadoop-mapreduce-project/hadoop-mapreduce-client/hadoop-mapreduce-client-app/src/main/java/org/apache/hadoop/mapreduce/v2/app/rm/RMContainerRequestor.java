@@ -397,6 +397,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     for (String host : req.hosts) {
       // Data-local
       if (!isNodeBlacklisted(host)) {
+        LOG.info("addContainerReq host = " + host);
         addResourceRequest(req.priority, host, req.capability,
             null);
       }

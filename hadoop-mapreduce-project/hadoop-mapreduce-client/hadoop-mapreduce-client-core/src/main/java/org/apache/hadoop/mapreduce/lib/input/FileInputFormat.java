@@ -28,13 +28,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
-import org.apache.hadoop.fs.BlockLocation;
-import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.mapred.LocatedFileStatusFetcher;
 import org.apache.hadoop.mapreduce.InputFormat;
 import org.apache.hadoop.mapreduce.InputSplit;
@@ -380,6 +374,26 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
     return new FileSplit(file, start, length, hosts, inMemoryHosts);
   }
 
+  protected FileSplit makeSplit(Path file, long start, long length,
+                                String[] hosts, String[] inMemoryHosts, BlockLocation blkLocation) {
+    StorageType[] storageTypes = blkLocation.getStorageTypes();
+    String[] hostsRet = hosts;
+    //If exists SSD, choose only SSD hosts
+
+    ArrayList<String> hostsList = new ArrayList<String>();
+    for (int i = 0; i < storageTypes.length; i++) {
+      LOG.info("Split storage type : " + storageTypes[i].toString() +
+                "; Split host : " + hosts[i]);
+      if (storageTypes[i] == StorageType.SSD) {
+        hostsList.add(hosts[i]);
+      }
+    }
+    if(hostsList.size() > 0) {
+      hostsRet = hostsList.toArray(new String[hostsList.size()]);
+    }
+    return new FileSplit(file, start, length, hostsRet, inMemoryHosts);
+  }
+
   /** 
    * Generate the list of files and make them into FileSplits.
    * @param job the job context
@@ -413,7 +427,7 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
             int blkIndex = getBlockIndex(blkLocations, length-bytesRemaining);
             splits.add(makeSplit(path, length-bytesRemaining, splitSize,
                         blkLocations[blkIndex].getHosts(),
-                        blkLocations[blkIndex].getCachedHosts()));
+                        blkLocations[blkIndex].getCachedHosts(),blkLocations[blkIndex]));
             bytesRemaining -= splitSize;
           }
 
@@ -421,7 +435,7 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
             int blkIndex = getBlockIndex(blkLocations, length-bytesRemaining);
             splits.add(makeSplit(path, length-bytesRemaining, bytesRemaining,
                        blkLocations[blkIndex].getHosts(),
-                       blkLocations[blkIndex].getCachedHosts()));
+                       blkLocations[blkIndex].getCachedHosts(),blkLocations[blkIndex]));
           }
         } else { // not splitable
           if (LOG.isDebugEnabled()) {
@@ -432,7 +446,7 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
             }
           }
           splits.add(makeSplit(path, 0, length, blkLocations[0].getHosts(),
-                      blkLocations[0].getCachedHosts()));
+                      blkLocations[0].getCachedHosts(),blkLocations[0]));
         }
       } else { 
         //Create empty hosts array for zero length files

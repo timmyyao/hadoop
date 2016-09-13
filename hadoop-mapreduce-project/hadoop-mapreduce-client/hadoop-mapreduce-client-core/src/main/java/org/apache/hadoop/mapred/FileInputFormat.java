@@ -329,7 +329,7 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
     long minSize = Math.max(job.getLong(org.apache.hadoop.mapreduce.lib.input.
       FileInputFormat.SPLIT_MINSIZE, 1), minSplitSize);
     boolean chooseStorageType = job.getBoolean(org.apache.hadoop.mapreduce.lib.
-      input.FileInputFormat.CHOOSE_STORAGE_TYPE, false);
+      input.FileInputFormat.CHOOSE_STORAGE_TYPE, true);
 
     // generate splits
     ArrayList<FileSplit> splits = new ArrayList<FileSplit>(numSplits);
@@ -699,26 +699,24 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
     if (bytesInThisBlock >= splitSize) {
       StorageType[] storageTypes = blkLocations[startIndex].getStorageTypes();
       String[] hosts = blkLocations[startIndex].getHosts();
-      //Rearrange hosts to put SSD node in the front
+      String[] hostsRet = blkLocations[startIndex].getHosts();
+      LOG.info("chooseStorageType = " + chooseStorageType);
+      //If exists SSD, choose only SSD hosts
       if(chooseStorageType == true) {
+        ArrayList<String> hostsList = new ArrayList<String>();
         for (int i = 0; i < storageTypes.length; i++) {
+          LOG.info("Split storage type : " + storageTypes[i].toString() +
+                  "; Split host : " + hosts[i]);
           if (storageTypes[i] == StorageType.SSD) {
-            StorageType storageTypeSSD = storageTypes[i];
-            storageTypes[i] = storageTypes[0];
-            storageTypes[0] = storageTypeSSD;
-            String hostSSD = hosts[i];
-            hosts[i] = hosts[0];
-            hosts[0] = hostSSD;
-            break;
+            hostsList.add(hosts[i]);
           }
         }
+        if(hostsList.size() > 0) {
+          hostsRet = hostsList.toArray(new String[hostsList.size()]);
+        }
       }
-      LOG.info("chooseStorageType = " + chooseStorageType);
-      for(int i = 0; i < storageTypes.length; i++) {
-        LOG.info("Split storage type : " + storageTypes[i].toString() +
-                "; Split host : " + hosts[i]);
-      }
-      return new String[][] { hosts,
+
+      return new String[][] { hostsRet,
               blkLocations[startIndex].getCachedHosts() };
     }
 

@@ -1587,6 +1587,11 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
       } catch (IOException e) {
         throw new YarnRuntimeException(e);
       }
+      for(TaskSplitMetaInfo taskSplitMetaInfo : allTaskSplitMetaInfo) {
+        for(String location : taskSplitMetaInfo.getLocations()) {
+          LOG.info("Task split metainfo : " + location);
+        }
+      }
       return allTaskSplitMetaInfo;
     }
 

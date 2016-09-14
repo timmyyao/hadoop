@@ -106,12 +106,7 @@ import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncherEvent;
 import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncherImpl;
 import org.apache.hadoop.mapreduce.v2.app.local.LocalContainerAllocator;
 import org.apache.hadoop.mapreduce.v2.app.metrics.MRAppMetrics;
-import org.apache.hadoop.mapreduce.v2.app.rm.ContainerAllocator;
-import org.apache.hadoop.mapreduce.v2.app.rm.ContainerAllocatorEvent;
-import org.apache.hadoop.mapreduce.v2.app.rm.RMCommunicator;
-import org.apache.hadoop.mapreduce.v2.app.rm.RMContainerAllocator;
-import org.apache.hadoop.mapreduce.v2.app.rm.RMContainerRequestor;
-import org.apache.hadoop.mapreduce.v2.app.rm.RMHeartbeatHandler;
+import org.apache.hadoop.mapreduce.v2.app.rm.*;
 import org.apache.hadoop.mapreduce.v2.app.rm.preemption.AMPreemptionPolicy;
 import org.apache.hadoop.mapreduce.v2.app.rm.preemption.NoopAMPreemptionPolicy;
 import org.apache.hadoop.mapreduce.v2.app.speculate.DefaultSpeculator;
@@ -976,6 +971,14 @@ public class MRAppMaster extends CompositeService {
 
     @Override
     public void handle(ContainerAllocatorEvent event) {
+      if (event instanceof ContainerRequestEvent) {
+        ContainerRequestEvent reqEvent = (ContainerRequestEvent)event;
+        int i = 0;
+        for (String host : reqEvent.getHosts()) {
+          LOG.info("ContainerAllocatorRouter.handle : event host <" + i + "> =" + host);
+          i++;
+        }
+      }
       this.containerAllocator.handle(event);
     }
 

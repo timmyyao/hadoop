@@ -19,15 +19,7 @@
 package org.apache.hadoop.mapred;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
@@ -701,19 +693,20 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
       String[] hosts = blkLocations[startIndex].getHosts();
       String[] hostsRet = blkLocations[startIndex].getHosts();
       LOG.info("chooseStorageType = " + chooseStorageType);
-      //If exists SSD, choose only SSD hosts
+      //Sort the hosts to put SSD hosts at first
       if(chooseStorageType == true) {
-        ArrayList<String> hostsList = new ArrayList<String>();
+        LinkedList<String> hostsList = new LinkedList<String>(); //hosts sorted in order
         for (int i = 0; i < storageTypes.length; i++) {
           LOG.info("Split storage type : " + storageTypes[i].toString() +
                   "; Split host : " + hosts[i]);
           if (storageTypes[i] == StorageType.SSD) {
-            hostsList.add(hosts[i]);
+            hostsList.addFirst(hosts[i]);
+          }
+          else {
+            hostsList.addLast(hosts[i]);
           }
         }
-        if(hostsList.size() > 0) {
-          hostsRet = hostsList.toArray(new String[hostsList.size()]);
-        }
+        hostsRet = hostsList.toArray(new String[hostsList.size()]);
       }
 
       return new String[][] { hostsRet,

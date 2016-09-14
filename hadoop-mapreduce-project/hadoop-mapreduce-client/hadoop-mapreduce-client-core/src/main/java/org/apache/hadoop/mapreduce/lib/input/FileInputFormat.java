@@ -20,6 +20,7 @@ package org.apache.hadoop.mapreduce.lib.input;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import java.util.concurrent.TimeUnit;
@@ -378,19 +379,19 @@ public abstract class FileInputFormat<K, V> extends InputFormat<K, V> {
                                 String[] hosts, String[] inMemoryHosts, BlockLocation blkLocation) {
     StorageType[] storageTypes = blkLocation.getStorageTypes();
     String[] hostsRet = hosts;
-    //If exists SSD, choose only SSD hosts
-
-    ArrayList<String> hostsList = new ArrayList<String>();
+    //Sort the hosts to put SSD hosts at first
+    LinkedList<String> hostsList = new LinkedList<String>(); //hosts sorted in order
     for (int i = 0; i < storageTypes.length; i++) {
       LOG.info("Split storage type : " + storageTypes[i].toString() +
                 "; Split host : " + hosts[i]);
       if (storageTypes[i] == StorageType.SSD) {
-        hostsList.add(hosts[i]);
+        hostsList.addFirst(hosts[i]);
+      }
+      else {
+        hostsList.addLast(hosts[i]);
       }
     }
-    if(hostsList.size() > 0) {
-      hostsRet = hostsList.toArray(new String[hostsList.size()]);
-    }
+    hostsRet = hostsList.toArray(new String[hostsList.size()]);
     return new FileSplit(file, start, length, hostsRet, inMemoryHosts);
   }
 

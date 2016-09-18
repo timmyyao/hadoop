@@ -46,12 +46,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.ipc.CallerContext;
-import org.apache.hadoop.mapred.FileOutputCommitter;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.LocalContainerLauncher;
-import org.apache.hadoop.mapred.TaskAttemptListenerImpl;
-import org.apache.hadoop.mapred.TaskLog;
-import org.apache.hadoop.mapred.TaskUmbilicalProtocol;
+import org.apache.hadoop.mapred.*;
 import org.apache.hadoop.mapreduce.CryptoUtils;
 import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.MRJobConfig;
@@ -74,6 +69,7 @@ import org.apache.hadoop.mapreduce.jobhistory.JobHistoryParser.TaskAttemptInfo;
 import org.apache.hadoop.mapreduce.jobhistory.JobHistoryParser.TaskInfo;
 import org.apache.hadoop.mapreduce.security.TokenCache;
 import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
+import org.apache.hadoop.mapreduce.split.JobSplit;
 import org.apache.hadoop.mapreduce.task.JobContextImpl;
 import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl;
 import org.apache.hadoop.mapreduce.v2.api.records.AMInfo;
@@ -101,6 +97,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.impl.JobImpl;
+import org.apache.hadoop.mapreduce.v2.app.job.impl.MapTaskImpl;
 import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncher;
 import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncherEvent;
 import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncherImpl;
@@ -1486,7 +1483,16 @@ public class MRAppMaster extends CompositeService {
     public void handle(TaskAttemptEvent event) {
       Job job = context.getJob(event.getTaskAttemptID().getTaskId().getJobId());
       Task task = job.getTask(event.getTaskAttemptID().getTaskId());
+      if(task instanceof MapTaskImpl) {
+        for(String host : ((MapTaskImpl)task).getTaskSplitMetaInfo().getLocations())
+        LOG.info("TaskAttemptEventDispatcher : <task> : " + host);
+      }
       TaskAttempt attempt = task.getAttempt(event.getTaskAttemptID());
+      if(attempt instanceof MapTaskAttemptImpl) {
+        for(String host : ((MapTaskAttemptImpl)attempt).splitInfo.getLocations()) {
+          LOG.info("TaskAttemptEventDispatcher : <attempt> : " + host);
+        }
+      }
       ((EventHandler<TaskAttemptEvent>) attempt).handle(event);
     }
   }

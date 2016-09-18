@@ -35,7 +35,7 @@ import org.apache.hadoop.yarn.util.Clock;
 @SuppressWarnings("rawtypes")
 public class MapTaskAttemptImpl extends TaskAttemptImpl {
 
-  private final TaskSplitMetaInfo splitInfo;
+  public final TaskSplitMetaInfo splitInfo;
 
   public MapTaskAttemptImpl(TaskId taskId, int attempt, 
       EventHandler eventHandler, Path jobFile, 

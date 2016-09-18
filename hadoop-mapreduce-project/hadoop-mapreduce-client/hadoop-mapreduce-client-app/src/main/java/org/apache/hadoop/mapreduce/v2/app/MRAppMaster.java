@@ -1483,16 +1483,7 @@ public class MRAppMaster extends CompositeService {
     public void handle(TaskAttemptEvent event) {
       Job job = context.getJob(event.getTaskAttemptID().getTaskId().getJobId());
       Task task = job.getTask(event.getTaskAttemptID().getTaskId());
-      if(task instanceof MapTaskImpl) {
-        for(String host : ((MapTaskImpl)task).getTaskSplitMetaInfo().getLocations())
-        LOG.info("TaskAttemptEventDispatcher : <task> : " + host);
-      }
       TaskAttempt attempt = task.getAttempt(event.getTaskAttemptID());
-      if(attempt instanceof MapTaskAttemptImpl) {
-        for(String host : ((MapTaskAttemptImpl)attempt).splitInfo.getLocations()) {
-          LOG.info("TaskAttemptEventDispatcher : <attempt> : " + host);
-        }
-      }
       ((EventHandler<TaskAttemptEvent>) attempt).handle(event);
     }
   }

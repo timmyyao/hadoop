@@ -1630,6 +1630,9 @@ public abstract class TaskAttemptImpl implements
                 taskAttempt.attemptId, 
                 taskAttempt.resourceCapability));
       } else {
+        for(String host : taskAttempt.dataLocalHosts.toArray(new String[taskAttempt.dataLocalHosts.size()])) {
+          LOG.info("RequestContainerTransition : host = " + host);
+        }
         taskAttempt.eventHandler.handle(new ContainerRequestEvent(
             taskAttempt.attemptId, taskAttempt.resourceCapability,
             taskAttempt.dataLocalHosts.toArray(

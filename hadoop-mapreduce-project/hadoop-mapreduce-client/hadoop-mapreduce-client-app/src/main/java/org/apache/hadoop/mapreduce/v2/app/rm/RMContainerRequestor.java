@@ -218,6 +218,13 @@ public abstract class RMContainerRequestor extends RMCommunicator {
           + " finishedContainers=" + numCompletedContainers
           + " resourcelimit=" + availableResources + " knownNMs="
           + clusterNmCount);
+      int i = 1;
+      for (ResourceRequest resourceRequest : ask) {
+        LOG.info("@makeRemoteRequest()  ask[" + i + "] :  priority= " + resourceRequest.getPriority()+
+          "; host = " + resourceRequest.getResourceName() +
+          "; numContainer = " + resourceRequest.getNumContainers());
+        i++;
+      }
     }
 
     ask.clear();

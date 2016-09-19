@@ -816,11 +816,12 @@ public class RMContainerAllocator extends RMContainerRequestor
       }
     }
 
-    if (LOG.isDebugEnabled()) {
+    //if (LOG.isDebugEnabled()) {
       for (Container cont : newContainers) {
-        LOG.debug("Received new Container :" + cont);
+        //LOG.debug("Received new Container :" + cont);
+        LOG.info("Received new Container :" + cont);
       }
-    }
+    //}
 
     //Called on each allocation. Will know about newly blacklisted/added hosts.
     computeIgnoreBlacklisting();

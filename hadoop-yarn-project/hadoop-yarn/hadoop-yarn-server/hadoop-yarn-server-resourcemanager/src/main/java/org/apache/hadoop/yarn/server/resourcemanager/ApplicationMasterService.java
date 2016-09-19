@@ -535,6 +535,7 @@ public class ApplicationMasterService extends AbstractService implements
                 increaseResourceReqs, decreaseResourceReqs);
       }
 
+      LOG.info("@allocate : YarnScheduler = " + this.rScheduler.getClass());
       for (Container container : allocation.getContainers()){
         LOG.info("@allocate : container = " + container);
       }

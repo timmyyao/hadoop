@@ -209,6 +209,11 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     if(askList.size() > 0) {
       askToAllocate.add(askList.get(askList.size() - 1));
     }
+    for(ResourceRequest resourceRequest : askToAllocate) {
+      LOG.info("@makeRemoteRequest askToAllocate : " + resourceRequest.getPriority()+
+              "; host = " + resourceRequest.getResourceName() +
+              "; numContainer = " + resourceRequest.getNumContainers());
+    }
 
     AllocateRequest allocateRequest =
         AllocateRequest.newInstance(lastResponseID,

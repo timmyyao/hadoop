@@ -207,7 +207,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     }
     ArrayList<ResourceRequest> askToAllocate = new ArrayList<ResourceRequest>();
     if(askList.size() == 5) {
-      //askToAllocate.add(askList.get(0));
+      askToAllocate.add(askList.get(0));
       askToAllocate.add(askList.get(1));
       askToAllocate.add(askList.get(askList.size() - 1));
     }

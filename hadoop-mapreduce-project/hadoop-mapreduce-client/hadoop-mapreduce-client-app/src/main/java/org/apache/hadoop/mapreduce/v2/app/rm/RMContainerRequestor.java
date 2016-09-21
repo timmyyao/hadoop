@@ -85,6 +85,8 @@ public abstract class RMContainerRequestor extends RMCommunicator {
   // numContainers dont end up as duplicates
   private final Set<ResourceRequest> ask = new TreeSet<ResourceRequest>(
       RESOURCE_REQUEST_COMPARATOR);
+  private final Set<ResourceRequest> askFirst = new TreeSet<ResourceRequest>(
+      RESOURCE_REQUEST_COMPARATOR);
   private final Set<ContainerId> release = new TreeSet<ContainerId>();
   // pendingRelease holds history or release requests.request is removed only if
   // RM sends completedContainer.
@@ -199,7 +201,8 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     ResourceBlacklistRequest blacklistRequest =
         ResourceBlacklistRequest.newInstance(new ArrayList<String>(blacklistAdditions),
             new ArrayList<String>(blacklistRemovals));
-    ArrayList<ResourceRequest> askList = new ArrayList<ResourceRequest>(ask);
+    /* tim : use one single host*/
+    /*ArrayList<ResourceRequest> askList = new ArrayList<ResourceRequest>(ask);
     for(ResourceRequest resourceRequest : askList) {
       LOG.info("@makeRemoteRequest askList : priority= " + resourceRequest.getPriority()+
               "; host = " + resourceRequest.getResourceName() +
@@ -222,11 +225,23 @@ public abstract class RMContainerRequestor extends RMCommunicator {
       LOG.info("@makeRemoteRequest askToAllocate : " + resourceRequest.getPriority()+
               "; host = " + resourceRequest.getResourceName() +
               "; numContainer = " + resourceRequest.getNumContainers());
+    }*/
+
+    /* tim : ask has only one host of each split, change the relaxLocality to false*/
+    for (ResourceRequest resourceRequest : ask) {
+      if (resourceRequest.getResourceName() == ResourceRequest.ANY ||
+              resourceRequest.getResourceName() == "/default-rack"){
+        resourceRequest.setRelaxLocality(false);
+      }
+      LOG.info("@makeRemoteRequest askList : priority= " + resourceRequest.getPriority()+
+              "; host = " + resourceRequest.getResourceName() +
+              "; numContainer = " + resourceRequest.getNumContainers() +
+              "; relaxLocality = " + resourceRequest.getRelaxLocality());
     }
 
     AllocateRequest allocateRequest =
         AllocateRequest.newInstance(lastResponseID,
-          super.getApplicationProgress(), askToAllocate,
+          super.getApplicationProgress(), new ArrayList<ResourceRequest>(ask),
           new ArrayList<ContainerId>(release), blacklistRequest);
     AllocateResponse allocateResponse = scheduler.allocate(allocateRequest);
     lastResponseID = allocateResponse.getResponseId();
@@ -432,6 +447,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
         LOG.info("addContainerReq host = " + host);
         addResourceRequest(req.priority, host, req.capability,
             null);
+        break;
       }
     }
 

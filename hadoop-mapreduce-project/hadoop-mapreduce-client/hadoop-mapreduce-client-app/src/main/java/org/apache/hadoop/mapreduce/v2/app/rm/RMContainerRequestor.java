@@ -210,6 +210,10 @@ public abstract class RMContainerRequestor extends RMCommunicator {
       askToAllocate.add(askList.get(0));
       askToAllocate.add(askList.get(1));
       askToAllocate.add(askList.get(askList.size() - 1));
+      ResourceRequest anyRequest = askToAllocate.get(0);
+      anyRequest.setRelaxLocality(false);
+      ResourceRequest rackRequest = askToAllocate.get(1);
+      rackRequest.setRelaxLocality(false);
     }
     else {
       askToAllocate = askList;

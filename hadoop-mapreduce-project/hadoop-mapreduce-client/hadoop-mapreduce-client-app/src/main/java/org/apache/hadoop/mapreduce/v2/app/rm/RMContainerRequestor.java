@@ -229,8 +229,9 @@ public abstract class RMContainerRequestor extends RMCommunicator {
 
     /* tim : ask has only one host of each split, change the relaxLocality to false*/
     for (ResourceRequest resourceRequest : ask) {
-      if (resourceRequest.getResourceName() == ResourceRequest.ANY ||
-              resourceRequest.getResourceName() == "/default-rack"){
+      if (resourceRequest.getPriority().getPriority() == 20 &&
+          (resourceRequest.getResourceName() == ResourceRequest.ANY ||
+          resourceRequest.getResourceName() == "/default-rack")){
         resourceRequest.setRelaxLocality(false);
       }
       LOG.info("@makeRemoteRequest askList : priority= " + resourceRequest.getPriority()+

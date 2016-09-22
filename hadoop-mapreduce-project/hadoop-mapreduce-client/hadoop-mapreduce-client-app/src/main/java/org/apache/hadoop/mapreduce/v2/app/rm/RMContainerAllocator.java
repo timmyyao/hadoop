@@ -999,8 +999,10 @@ public class RMContainerAllocator extends RMContainerRequestor
       new LinkedList<TaskAttemptId>();
     
     /** Maps from a host to a list of Map tasks with data on the host */
-    private final Map<String, LinkedList<TaskAttemptId>> mapsHostMapping = 
-      new HashMap<String, LinkedList<TaskAttemptId>>();
+    //private final Map<String, LinkedList<TaskAttemptId>> mapsHostMapping =
+    //  new HashMap<String, LinkedList<TaskAttemptId>>();
+    private final ArrayList<Map<String, LinkedList<TaskAttemptId>>> mapsHostMappings =
+        new ArrayList<Map<String, LinkedList<TaskAttemptId>>>();
     private final Map<String, LinkedList<TaskAttemptId>> mapsRackMapping = 
       new HashMap<String, LinkedList<TaskAttemptId>>();
     @VisibleForTesting
@@ -1066,7 +1068,12 @@ public class RMContainerAllocator extends RMContainerRequestor
         } else {
           request =
               new ContainerRequest(event, PRIORITY_MAP, mapNodeLabelExpression);
+          int mapIndex = 0;
           for (String host : event.getHosts()) {
+            if (mapIndex >= mapsHostMappings.size()) {
+              mapsHostMappings.add(new HashMap<String, LinkedList<TaskAttemptId>>());
+            }
+            Map<String, LinkedList<TaskAttemptId>> mapsHostMapping = mapsHostMappings.get(mapIndex ++);
             LinkedList<TaskAttemptId> list = mapsHostMapping.get(host);
             if (list == null) {
               list = new LinkedList<TaskAttemptId>();
@@ -1286,8 +1293,24 @@ public class RMContainerAllocator extends RMContainerRequestor
           || PRIORITY_OPPORTUNISTIC_MAP.equals(priority)) {
         LOG.info("Replacing MAP container " + allocated.getId());
         // allocated container was for a map
+        /* tim : find toBeReplaced in mapsHostMappings*/
         String host = allocated.getNodeId().getHost();
-        LinkedList<TaskAttemptId> list = mapsHostMapping.get(host);
+        for (Map<String, LinkedList<TaskAttemptId>> mapsHostMapping : mapsHostMappings) {
+          LinkedList<TaskAttemptId> list = mapsHostMapping.get(host);
+          if (list != null && list.size() > 0) {
+            TaskAttemptId tId = list.removeLast();
+            if (maps.containsKey(tId)) {
+              toBeReplaced = maps.remove(tId);
+              break;
+            }
+          }
+        }
+        if (toBeReplaced == null) {
+          TaskAttemptId tId = maps.keySet().iterator().next();
+          toBeReplaced = maps.remove(tId);
+        }
+
+        /*LinkedList<TaskAttemptId> list = mapsHostMapping.get(host);
         if (list != null && list.size() > 0) {
           TaskAttemptId tId = list.removeLast();
           if (maps.containsKey(tId)) {
@@ -1297,7 +1320,7 @@ public class RMContainerAllocator extends RMContainerRequestor
         else {
           TaskAttemptId tId = maps.keySet().iterator().next();
           toBeReplaced = maps.remove(tId);          
-        }        
+        } */
       }
       else if (PRIORITY_REDUCE.equals(priority)) {
         TaskAttemptId tId = reduces.keySet().iterator().next();
@@ -1342,12 +1365,48 @@ public class RMContainerAllocator extends RMContainerRequestor
     @SuppressWarnings("unchecked")
     private void assignMapsWithLocality(List<Container> allocatedContainers) {
       // try to assign to all nodes first to match node local
-      Iterator<Container> it = allocatedContainers.iterator();
-      while(it.hasNext() && maps.size() > 0 && canAssignMaps()){
-        Container allocated = it.next();        
+      /* tim : assign in the order of mapsHostMappings*/
+      for (Map<String, LinkedList<TaskAttemptId>> mapsHostMapping : mapsHostMappings) {
+        Iterator<Container> it = allocatedContainers.iterator();
+        while (it.hasNext() && maps.size() > 0 && canAssignMaps()) {
+          Container allocated = it.next();
+          Priority priority = allocated.getPriority();
+          assert (PRIORITY_MAP.equals(priority)
+                  || PRIORITY_OPPORTUNISTIC_MAP.equals(priority));
+          if (!PRIORITY_OPPORTUNISTIC_MAP.equals(priority)) {
+            // "if (maps.containsKey(tId))" below should be almost always true.
+            // hence this while loop would almost always have O(1) complexity
+            String host = allocated.getNodeId().getHost();
+            LinkedList<TaskAttemptId> list = mapsHostMapping.get(host);
+            while (list != null && list.size() > 0) {
+              if (LOG.isDebugEnabled()) {
+                LOG.debug("Host matched to the request list " + host);
+              }
+              TaskAttemptId tId = list.removeFirst();
+              if (maps.containsKey(tId)) {
+                ContainerRequest assigned = maps.remove(tId);
+                containerAssigned(allocated, assigned);
+                it.remove();
+                JobCounterUpdateEvent jce =
+                        new JobCounterUpdateEvent(assigned.attemptID.getTaskId()
+                                .getJobId());
+                jce.addCounterUpdate(JobCounter.DATA_LOCAL_MAPS, 1);
+                eventHandler.handle(jce);
+                hostLocalAssigned++;
+                if (LOG.isDebugEnabled()) {
+                  LOG.debug("Assigned based on host match " + host);
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+      /*while(it.hasNext() && maps.size() > 0 && canAssignMaps()){
+        Container allocated = it.next();
         Priority priority = allocated.getPriority();
         assert (PRIORITY_MAP.equals(priority)
-            || PRIORITY_OPPORTUNISTIC_MAP.equals(priority));
+                || PRIORITY_OPPORTUNISTIC_MAP.equals(priority));
         if (!PRIORITY_OPPORTUNISTIC_MAP.equals(priority)) {
           // "if (maps.containsKey(tId))" below should be almost always true.
           // hence this while loop would almost always have O(1) complexity
@@ -1363,8 +1422,8 @@ public class RMContainerAllocator extends RMContainerRequestor
               containerAssigned(allocated, assigned);
               it.remove();
               JobCounterUpdateEvent jce =
-                  new JobCounterUpdateEvent(assigned.attemptID.getTaskId()
-                      .getJobId());
+                      new JobCounterUpdateEvent(assigned.attemptID.getTaskId()
+                              .getJobId());
               jce.addCounterUpdate(JobCounter.DATA_LOCAL_MAPS, 1);
               eventHandler.handle(jce);
               hostLocalAssigned++;
@@ -1375,7 +1434,7 @@ public class RMContainerAllocator extends RMContainerRequestor
             }
           }
         }
-      }
+      }*/
       
       // try to match all rack local
       it = allocatedContainers.iterator();

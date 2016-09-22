@@ -1365,9 +1365,10 @@ public class RMContainerAllocator extends RMContainerRequestor
     @SuppressWarnings("unchecked")
     private void assignMapsWithLocality(List<Container> allocatedContainers) {
       // try to assign to all nodes first to match node local
+      Iterator<Container> it = allocatedContainers.iterator();
       /* tim : assign in the order of mapsHostMappings*/
       for (Map<String, LinkedList<TaskAttemptId>> mapsHostMapping : mapsHostMappings) {
-        Iterator<Container> it = allocatedContainers.iterator();
+        it = allocatedContainers.iterator();
         while (it.hasNext() && maps.size() > 0 && canAssignMaps()) {
           Container allocated = it.next();
           Priority priority = allocated.getPriority();

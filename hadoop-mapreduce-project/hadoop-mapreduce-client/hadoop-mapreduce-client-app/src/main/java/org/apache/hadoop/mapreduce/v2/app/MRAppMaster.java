@@ -968,14 +968,6 @@ public class MRAppMaster extends CompositeService {
 
     @Override
     public void handle(ContainerAllocatorEvent event) {
-      if (event instanceof ContainerRequestEvent) {
-        ContainerRequestEvent reqEvent = (ContainerRequestEvent)event;
-        int i = 0;
-        for (String host : reqEvent.getHosts()) {
-          LOG.info("ContainerAllocatorRouter.handle : event host <" + i + "> =" + host);
-          i++;
-        }
-      }
       this.containerAllocator.handle(event);
     }
 

@@ -285,7 +285,8 @@ public abstract class RMContainerRequestor extends RMCommunicator {
       for (ResourceRequest resourceRequest : ask) {
         LOG.info("@makeRemoteRequest()  ask[" + i + "] :  priority= " + resourceRequest.getPriority()+
           "; host = " + resourceRequest.getResourceName() +
-          "; numContainer = " + resourceRequest.getNumContainers());
+          "; numContainer = " + resourceRequest.getNumContainers() +
+          "; relaxLocality = " + resourceRequest.getRelaxLocality());
         i++;
       }
     }
@@ -481,7 +482,6 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     for (String host : req.hosts) {
       // Data-local
       if (!isNodeBlacklisted(host)) {
-        LOG.info("addContainerReq host = " + host);
         addResourceRequest(req.priority, host, req.capability,
             null, new RequestOrder(order));
         order ++;

@@ -393,11 +393,6 @@ public class RMContainerAllocator extends RMContainerRequestor
         reqEvent.getCapability().setMemorySize(mapResourceRequest.getMemorySize());
         reqEvent.getCapability().setVirtualCores(
           mapResourceRequest.getVirtualCores());
-        int i = 1;
-        for (String host : reqEvent.getHosts()) {
-          LOG.info("reqEvent.getHosts <" + i + "> = " + host);
-          i ++;
-        }
         scheduledRequests.addMap(reqEvent);//maps are immediately scheduled
       } else {
         if (reduceResourceRequest.equals(Resources.none())) {

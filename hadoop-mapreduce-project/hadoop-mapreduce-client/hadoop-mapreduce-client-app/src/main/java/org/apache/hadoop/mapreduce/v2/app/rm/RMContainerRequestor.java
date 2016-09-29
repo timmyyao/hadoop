@@ -650,8 +650,17 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     // because objects inside the resource map can be deleted ask can end up 
     // containing an object that matches new resource object but with different
     // numContainers. So existing values must be replaced explicitly
-    asks.get(order).remove(remoteRequest);
-    asks.get(order).add(remoteRequest);
+    if (remoteRequest.getPriority().getPriority() == 20) {
+      asks.get(order).remove(remoteRequest);
+      asks.get(order).add(remoteRequest);
+    }
+    // For non-map requests, request should be added to all asks (order is always 0 for non-map requests)
+    else {
+      for (Set<ResourceRequest> ask : asks) {
+        ask.remove(remoteRequest);
+        ask.add(remoteRequest);
+      }
+    }
   }
 
   protected void release(ContainerId containerId) {

@@ -469,7 +469,6 @@ public class ApplicationMasterService extends AbstractService implements
       // set label expression for Resource Requests if resourceName=ANY 
       ApplicationSubmissionContext asc = app.getApplicationSubmissionContext();
       for (ResourceRequest req : ask) {
-        LOG.info("@allocate : ask.host = " + req.getResourceName());
         if (null == req.getNodeLabelExpression()
             && ResourceRequest.ANY.equals(req.getResourceName())) {
           req.setNodeLabelExpression(asc.getNodeLabelExpression());
@@ -533,11 +532,6 @@ public class ApplicationMasterService extends AbstractService implements
             this.rScheduler.allocate(appAttemptId, ask, release,
                 blacklistAdditions, blacklistRemovals,
                 increaseResourceReqs, decreaseResourceReqs);
-      }
-
-      LOG.info("@allocate : YarnScheduler = " + this.rScheduler.getClass());
-      for (Container container : allocation.getContainers()){
-        LOG.info("@allocate : container = " + container);
       }
 
       if (!blacklistAdditions.isEmpty() || !blacklistRemovals.isEmpty()) {

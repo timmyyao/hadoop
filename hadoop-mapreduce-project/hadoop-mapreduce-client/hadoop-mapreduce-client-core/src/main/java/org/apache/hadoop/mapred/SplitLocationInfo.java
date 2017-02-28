@@ -20,16 +20,25 @@ package org.apache.hadoop.mapred;
 
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
+import org.apache.hadoop.fs.StorageType;
 
 @Public
 @Evolving
 public class SplitLocationInfo {
   private boolean inMemory;
   private String location;
+  private StorageType storageType;
   
   public SplitLocationInfo(String location, boolean inMemory) {
     this.location = location;
     this.inMemory = inMemory;
+    this.storageType = null;
+  }
+
+  public SplitLocationInfo(String location, boolean inMemory, StorageType storageType) {
+    this.location = location;
+    this.inMemory = inMemory;
+    this.storageType = storageType;
   }
   
   public boolean isOnDisk() {
@@ -43,4 +52,6 @@ public class SplitLocationInfo {
   public String getLocation() {
     return location;
   }
+
+  public StorageType getStorageType() { return storageType;}
 }

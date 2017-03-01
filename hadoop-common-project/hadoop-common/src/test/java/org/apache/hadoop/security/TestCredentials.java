@@ -20,6 +20,7 @@
 package org.apache.hadoop.security;
 
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -38,6 +39,8 @@ import java.util.Collection;
 
 import javax.crypto.KeyGenerator;
 
+import org.apache.commons.io.Charsets;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.security.Credentials;
@@ -136,6 +139,40 @@ public class TestCredentials {
               0, kLocal.length)==0);
     }
     tmpFileName.delete();
+  }
+
+  @Test
+  public void testFormatConfiguration()
+      throws IOException, NoSuchAlgorithmException {
+    byte oldVersion = 0;
+    byte defaultVersion = 1;
+    byte[] magic = "HDTS".getBytes(Charsets.UTF_8);
+    String testname = "testFormatConfiguration";
+    Text tok1 = new Text("token1");
+    Text tok2 = new Text("token2");
+    Text key1 = new Text("key1");
+    Credentials ts = generateCredentials(tok1, tok2, key1);
+    ByteArrayOutputStream os = new ByteArrayOutputStream();
+    // test default config
+    Configuration conf = new Configuration();
+    ts.writeTokenStorageToStream(new DataOutputStream(os), conf);
+    byte[] output = os.toByteArray();
+    for (int i = 0; i < magic.length; i++) {
+      assertEquals("default case: magic not correct", magic[i], output[i]);
+    }
+    assertEquals("default case: file version not correct",
+                 defaultVersion, output[magic.length]);
+    // test setting legacy
+    conf.set(Credentials.HADOOP_CREDENTIALS_FILE_FORMAT_KEY,
+             Credentials.FORMAT_JAVA);
+    os.reset();
+    ts.writeTokenStorageToStream(new DataOutputStream(os), conf);
+    output = os.toByteArray();
+    for (int i = 0; i < magic.length; i++) {
+      assertEquals("legacy case: magic not correct", magic[i], output[i]);
+    }
+    assertEquals("legacy case: file version not correct",
+                 oldVersion, output[magic.length]);
   }
 
   @Test

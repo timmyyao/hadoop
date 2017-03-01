@@ -62,6 +62,22 @@ import org.apache.hadoop.security.proto.SecurityProtos.CredentialsProto;
 public class Credentials implements Writable {
   private static final Log LOG = LogFactory.getLog(Credentials.class);
 
+  /** Hadoop config key for file format. */
+  public static final String HADOOP_CREDENTIALS_FILE_FORMAT_KEY =
+      "hadoop.security.token.file-format";
+
+  /**
+   * Use FORMAT_* as configuration parameter values.
+   * FORMAT_PB is for protobuf output.
+   */
+  public static final String FORMAT_PB = "protobuf";
+
+  /**
+   * Use FORMAT_* as configuration parameter values.
+   * FORMAT_JAVA is a legacy option for java serialization output.
+   */
+  public static final String FORMAT_JAVA = "java";
+
   private  Map<Text, byte[]> secretKeysMap = new HashMap<Text, byte[]>();
   private  Map<Text, Token<? extends TokenIdentifier>> tokenMap =
       new HashMap<Text, Token<? extends TokenIdentifier>>();
@@ -249,15 +265,30 @@ public class Credentials implements Writable {
 
   public void writeTokenStorageToStream(DataOutputStream os)
       throws IOException {
+    Configuration conf = new Configuration();
+    writeTokenStorageToStream(os, conf);
+  }
+
+  public void writeTokenStorageToStream(DataOutputStream os, Configuration conf)
+      throws IOException {
     os.write(TOKEN_STORAGE_MAGIC);
-    os.write(TOKEN_STORAGE_VERSION);
-    writeProto(os);
+    String format = conf.get(HADOOP_CREDENTIALS_FILE_FORMAT_KEY, FORMAT_PB);
+    if (format.equals(FORMAT_PB)) {
+      os.write(TOKEN_STORAGE_VERSION);
+      writeProto(os);
+    } else if (format.equals(FORMAT_JAVA)) {
+      os.write(OLD_TOKEN_STORAGE_VERSION);
+      write(os);
+      os.close();
+    } else {
+      throw new IOException("Bad file format specified in conf: " + format);
+    }
   }
 
   public void writeTokenStorageFile(Path filename,
                                     Configuration conf) throws IOException {
     FSDataOutputStream os = filename.getFileSystem(conf).create(filename);
-    writeTokenStorageToStream(os);
+    writeTokenStorageToStream(os, conf);
     os.close();
   }
 

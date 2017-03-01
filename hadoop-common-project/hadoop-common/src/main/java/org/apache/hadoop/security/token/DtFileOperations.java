@@ -49,13 +49,13 @@ public final class DtFileOperations {
    * Use FORMAT_* as arguments to format parameters.
    * FORMAT_PB is for protobuf output.
    */
-  public static final String FORMAT_PB = "protobuf";
+  public static final String FORMAT_PB = Credentials.FORMAT_PB;
 
   /**
    * Use FORMAT_* as arguments to format parameters.
    * FORMAT_JAVA is a legacy option for java serialization output.
    */
-  public static final String FORMAT_JAVA = "java";
+  public static final String FORMAT_JAVA = Credentials.FORMAT_JAVA;
 
   private static final String NA_STRING = "-NA-";
   private static final String PREFIX_HTTP = "http://";

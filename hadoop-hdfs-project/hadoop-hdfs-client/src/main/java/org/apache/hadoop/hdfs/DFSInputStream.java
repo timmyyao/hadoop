@@ -914,6 +914,8 @@ public class DFSInputStream extends FSInputStream
     final String dnAddr =
         chosenNode.getXferAddr(dfsClient.getConf().isConnectToDnViaHostname());
     DFSClient.LOG.debug("Connecting to datanode {}", dnAddr);
+    DFSClient.LOG.info("DFSInputStream: getBestNodeDNAddrPair: client = " + dfsClient.clientName +
+      "; chosenNode = " + chosenNode.getHostName() + "; StorageType = " + storageType.toString());
     InetSocketAddress targetAddr = NetUtils.createSocketAddr(dnAddr);
     return new DNAddrPair(chosenNode, targetAddr, storageType);
   }

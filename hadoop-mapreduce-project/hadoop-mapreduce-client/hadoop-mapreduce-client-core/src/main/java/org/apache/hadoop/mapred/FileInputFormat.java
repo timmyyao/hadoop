@@ -331,6 +331,7 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
       totalSize += file.getLen();
     }
 
+    LOG.info("Locality test: numSplits = " + numSplits);
     long goalSize = totalSize / (numSplits == 0 ? 1 : numSplits);
     long minSize = Math.max(job.getLong(org.apache.hadoop.mapreduce.lib.input.
       FileInputFormat.SPLIT_MINSIZE, 1), minSplitSize);
@@ -358,8 +359,11 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
             String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations,
                 length-bytesRemaining, splitSize, clusterMap);
             switch (splitHosts.length) {
-              case 3: splits.add(makeSplit(path, length - bytesRemaining, splitSize,
-                      splitHosts[0], splitHosts[1], splitHosts[2]));
+              case 3: {
+                splits.add(makeSplit(path, length - bytesRemaining, splitSize, splitHosts[0],
+                        splitHosts[1], splitHosts[2]));
+                break;
+              }
               default: splits.add(makeSplit(path, length - bytesRemaining, splitSize,
                       splitHosts[0], splitHosts[1]));
             }
@@ -370,8 +374,11 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
             String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations, length
                 - bytesRemaining, bytesRemaining, clusterMap);
             switch (splitHosts.length) {
-              case 3: splits.add(makeSplit(path, length - bytesRemaining, splitSize,
-                      splitHosts[0], splitHosts[1], splitHosts[2]));
+              case 3: {
+                splits.add(makeSplit(path, length - bytesRemaining, splitSize,
+                        splitHosts[0], splitHosts[1], splitHosts[2]));
+                break;
+              }
               default: splits.add(makeSplit(path, length - bytesRemaining, splitSize,
                       splitHosts[0], splitHosts[1]));
             }
@@ -386,7 +393,10 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
           }
           String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations,0,length,clusterMap);
           switch (splitHosts.length) {
-            case 3: splits.add(makeSplit(path, 0, length, splitHosts[0], splitHosts[1], splitHosts[2]));
+            case 3: {
+              splits.add(makeSplit(path, 0, length, splitHosts[0], splitHosts[1], splitHosts[2]));
+              break;
+            }
             default: splits.add(makeSplit(path, 0, length, splitHosts[0], splitHosts[1]));
           }
         }

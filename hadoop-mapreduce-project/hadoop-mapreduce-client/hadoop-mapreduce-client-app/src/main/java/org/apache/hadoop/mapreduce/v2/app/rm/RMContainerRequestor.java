@@ -477,7 +477,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     int order = 0;
     // Determine totalMapHostsNum according to map task's host number
     if (req.priority.getPriority() == 20) {
-      totalMapHostsNum = req.hosts.length;
+      totalMapHostsNum = req.hosts.length == 0 ? 1 : req.hosts.length;
     }
     for (String host : req.hosts) {
       // Data-local
@@ -572,7 +572,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
         // For map requests, set locality relaxation of rack-level and any-level to false
         // in the first totalMapHostsNum-1 times of resource request
         if (order < allRemoteRequests.size() - 1 && priority.getPriority() == 20 &&
-                (resourceName == "/default-rack" || resourceName == ResourceRequest.ANY)) {
+                (resourceName.equals("/default-rack") || resourceName.equals(ResourceRequest.ANY))) {
           remoteRequest.setRelaxLocality(false);
         }
         reqMap.put(capability, remoteRequest);
@@ -581,10 +581,11 @@ public abstract class RMContainerRequestor extends RMCommunicator {
       // Note this down for next interaction with ResourceManager
       addResourceRequestToAsk(remoteRequest, order);
       if (LOG.isDebugEnabled()) {
+        Set<ResourceRequest> ask = asks.get(order);
         LOG.debug("addResourceRequest:" + " applicationId="
                 + applicationId.getId() + " priority=" + priority.getPriority()
                 + " resourceName=" + resourceName + " numContainers="
-                + remoteRequest.getNumContainers() + " #asks=" + asks.get(order).size());
+                + remoteRequest.getNumContainers() + " #asks=" + ask.size());
       }
     }
   }
@@ -609,10 +610,11 @@ public abstract class RMContainerRequestor extends RMCommunicator {
       ResourceRequest remoteRequest = reqMap.get(capability);
 
       if (LOG.isDebugEnabled()) {
+        Set<ResourceRequest> ask = asks.get(order);
         LOG.debug("BEFORE decResourceRequest:" + " applicationId="
                 + applicationId.getId() + " priority=" + priority.getPriority()
                 + " resourceName=" + resourceName + " numContainers="
-                + remoteRequest.getNumContainers() + " #asks=" + asks.get(order).size());
+                + remoteRequest.getNumContainers() + " #asks=" + ask.size());
       }
 
       if (remoteRequest.getNumContainers() > 0) {
@@ -635,10 +637,11 @@ public abstract class RMContainerRequestor extends RMCommunicator {
       // send 0 container count requests also to cancel previous requests
       addResourceRequestToAsk(remoteRequest, order);
       if (LOG.isDebugEnabled()) {
+        Set<ResourceRequest> ask = asks.get(order);
         LOG.debug("AFTER decResourceRequest:" + " applicationId="
                 + applicationId.getId() + " priority=" + priority.getPriority()
                 + " resourceName=" + resourceName + " numContainers="
-                + remoteRequest.getNumContainers() + " #asks=" + asks.get(order).size());
+                + remoteRequest.getNumContainers() + " #asks=" + ask.size());
       }
     }
   }
@@ -651,8 +654,9 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     // containing an object that matches new resource object but with different
     // numContainers. So existing values must be replaced explicitly
     if (remoteRequest.getPriority().getPriority() == 20) {
-      asks.get(order).remove(remoteRequest);
-      asks.get(order).add(remoteRequest);
+      Set<ResourceRequest> ask = asks.get(order);
+      ask.remove(remoteRequest);
+      ask.add(remoteRequest);
     }
     // For non-map requests, request should be added to all asks (order is always 0 for non-map requests)
     else {
@@ -707,6 +711,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
   @Private
   @VisibleForTesting
   Set<ResourceRequest> getAsk() {
-    return asks.get(askIndex);
+    Set<ResourceRequest> ask = asks.get(askIndex);
+    return ask;
   }
 }

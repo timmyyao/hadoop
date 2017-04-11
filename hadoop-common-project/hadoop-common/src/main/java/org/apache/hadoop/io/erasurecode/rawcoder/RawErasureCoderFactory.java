@@ -18,6 +18,7 @@
 package org.apache.hadoop.io.erasurecode.rawcoder;
 
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.io.erasurecode.ECSchema;
 import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
 
 /**
@@ -53,4 +54,12 @@ public interface RawErasureCoderFactory {
    * @return codec name
    */
   String getCodecName();
+
+  /**
+   * Verify if the EC schema is legal
+   * @param schema
+   * @param cellSize
+   * @return
+   */
+  Boolean verifySchema(ECSchema schema, int cellSize);
 }

@@ -18,6 +18,7 @@
 package org.apache.hadoop.io.erasurecode.rawcoder;
 
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.io.erasurecode.ECSchema;
 import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
 
 import static org.apache.hadoop.io.erasurecode.CoderRegistry.DUMMY_CODEC_NAME;
@@ -46,5 +47,10 @@ public class DummyRawErasureCoderFactory implements RawErasureCoderFactory {
   @Override
   public String getCodecName() {
     return DUMMY_CODEC_NAME;
+  }
+
+  @Override
+  public Boolean verifySchema(ECSchema schema, int cellSize) {
+    return true;
   }
 }

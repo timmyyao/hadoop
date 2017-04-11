@@ -18,6 +18,7 @@
 package org.apache.hadoop.io.erasurecode.rawcoder;
 
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.io.erasurecode.ECSchema;
 import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
 
 import static org.apache.hadoop.io.erasurecode.CoderRegistry.IO_ERASURECODE_CODER_NAME_RS_ISAL;
@@ -48,5 +49,10 @@ public class NativeRSRawErasureCoderFactory implements RawErasureCoderFactory {
   @Override
   public String getCodecName() {
     return RS_CODEC_NAME;
+  }
+
+  @Override
+  public Boolean verifySchema(ECSchema schema, int cellSize) {
+    return true;
   }
 }

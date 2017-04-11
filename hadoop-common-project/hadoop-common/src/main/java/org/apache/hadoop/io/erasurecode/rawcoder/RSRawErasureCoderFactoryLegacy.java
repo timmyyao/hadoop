@@ -20,6 +20,9 @@ package org.apache.hadoop.io.erasurecode.rawcoder;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
 
+import static org.apache.hadoop.io.erasurecode.CoderRegistry.IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT;
+import static org.apache.hadoop.io.erasurecode.ErasureCodeConstants.RS_LEGACY_CODEC_NAME;
+
 /**
  * A raw coder factory for the legacy raw Reed-Solomon coder in Java.
  */
@@ -34,5 +37,15 @@ public class RSRawErasureCoderFactoryLegacy implements RawErasureCoderFactory {
   @Override
   public RawErasureDecoder createDecoder(ErasureCoderOptions coderOptions) {
     return new RSRawDecoderLegacy(coderOptions);
+  }
+
+  @Override
+  public String getCoderName() {
+    return IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT;
+  }
+
+  @Override
+  public String getCodecName() {
+    return RS_LEGACY_CODEC_NAME;
   }
 }

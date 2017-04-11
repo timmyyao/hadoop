@@ -36,6 +36,10 @@ import org.apache.hadoop.io.erasurecode.rawcoder.XORRawErasureCoderFactory;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
+import static org.apache.hadoop.io.erasurecode.CoderRegistry.IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT;
+import static org.apache.hadoop.io.erasurecode.CoderRegistry.IO_ERASURECODE_CODER_NAME_RS_DEFAULT;
+import static org.apache.hadoop.io.erasurecode.CoderRegistry.IO_ERASURECODE_CODER_NAME_XOR_DEFAULT;
+
 /**
  * A codec & coder utility to help create coders conveniently.
  *
@@ -85,6 +89,18 @@ public final class CodecUtil {
   public static final String IO_ERASURECODE_CODEC_XOR_RAWCODER_DEFAULT =
       XORRawErasureCoderFactory.class.getCanonicalName();
 
+  /** Raw coder factory implementations for the RS codec. */
+  public static final String IO_ERASURECODE_CODEC_RS_IMPL_KEY = "io.erasurecode.codec.rs.rawcoders";
+
+  /** Raw coder factory implementations for the RS legacy codec. */
+  public static final String IO_ERASURECODE_CODEC_RS_LEGACY_IMPL_KEY = "io.erasurecode.codec.rs-legacy.rawcoders";
+
+  /** Raw coder factory implementations for the XOR codec. */
+  public static final String IO_ERASURECODE_CODEC_XOR_IMPL_KEY = "io.erasurecode.codec.xor.rawcoders";
+
+  /** Raw coder factory implementations for the HHXOR codec. */
+  public static final String IO_ERASURECODE_CODEC_HHXOR_IMPL_KEY = "io.erasurecode.codec.hhxor.rawcoders";
+
   private CodecUtil() { }
 
   /**
@@ -133,10 +149,10 @@ public final class CodecUtil {
     Preconditions.checkNotNull(conf);
     Preconditions.checkNotNull(codec);
 
-    String rawCoderFactoryKey = getRawCoderFactNameFromCodec(conf, codec);
+    String[] rawCoderFactoryKeys = getRawCoderFactNamesFromCodec(conf, codec);
 
-    RawErasureCoderFactory fact = createRawCoderFactory(conf,
-        rawCoderFactoryKey);
+    RawErasureCoderFactory fact = createRawCoderFactory(conf, codec,
+        rawCoderFactoryKeys);
 
     return fact.createEncoder(coderOptions);
   }
@@ -153,18 +169,19 @@ public final class CodecUtil {
     Preconditions.checkNotNull(conf);
     Preconditions.checkNotNull(codec);
 
-    String rawCoderFactoryKey = getRawCoderFactNameFromCodec(conf, codec);
+    String[] rawCoderFactoryKeys = getRawCoderFactNamesFromCodec(conf, codec);
 
-    RawErasureCoderFactory fact = createRawCoderFactory(conf,
-        rawCoderFactoryKey);
+    RawErasureCoderFactory fact = createRawCoderFactory(conf, codec,
+        rawCoderFactoryKeys);
 
     return fact.createDecoder(coderOptions);
   }
 
   private static RawErasureCoderFactory createRawCoderFactory(
-      Configuration conf, String rawCoderFactoryKey) {
+      Configuration conf, String codec, String[] rawCoderFactoryKeys) {
     RawErasureCoderFactory fact;
-    try {
+    fact = CoderRegistry.getInstance().getCoderByCoderNames(codec, rawCoderFactoryKeys);
+    /*try {
       Class<? extends RawErasureCoderFactory> factClass = conf.getClassByName(
           rawCoderFactoryKey).asSubclass(RawErasureCoderFactory.class);
       fact = factClass.newInstance();
@@ -175,35 +192,29 @@ public final class CodecUtil {
 
     if (fact == null) {
       throw new RuntimeException("Failed to create raw coder factory");
-    }
+    }*/
 
     return fact;
   }
 
-  private static String getRawCoderFactNameFromCodec(Configuration conf,
+  private static String[] getRawCoderFactNamesFromCodec(Configuration conf,
                                                      String codec) {
     switch (codec) {
     case ErasureCodeConstants.RS_CODEC_NAME:
-      return conf.get(
-          IO_ERASURECODE_CODEC_RS_RAWCODER_KEY,
-          IO_ERASURECODE_CODEC_RS_RAWCODER_DEFAULT);
+      return conf.getStrings(IO_ERASURECODE_CODEC_RS_IMPL_KEY);
     case ErasureCodeConstants.RS_LEGACY_CODEC_NAME:
-      return conf.get(
-          IO_ERASURECODE_CODEC_RS_LEGACY_RAWCODER_KEY,
-          IO_ERASURECODE_CODEC_RS_LEGACY_RAWCODER_DEFAULT);
+      return conf.getStrings(IO_ERASURECODE_CODEC_RS_LEGACY_IMPL_KEY);
     case ErasureCodeConstants.XOR_CODEC_NAME:
-      return conf.get(
-          IO_ERASURECODE_CODEC_XOR_RAWCODER_KEY,
-          IO_ERASURECODE_CODEC_XOR_RAWCODER_DEFAULT);
+      return conf.getStrings(IO_ERASURECODE_CODEC_XOR_IMPL_KEY);
     default:
       // For custom codec, we throw exception if the factory is not configured
-      String rawCoderKey = "io.erasurecode.codec." + codec + ".rawcoder";
-      String factName = conf.get(rawCoderKey);
-      if (factName == null) {
+      String rawCoderKey = "io.erasurecode.codec." + codec + ".rawcoders";
+      String[] factNames = conf.getStrings(rawCoderKey);
+      if (factNames == null) {
         throw new IllegalArgumentException("Raw coder factory not configured " +
             "for custom codec " + codec);
       }
-      return factName;
+      return factNames;
     }
   }
 

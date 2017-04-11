@@ -20,6 +20,9 @@ package org.apache.hadoop.io.erasurecode.rawcoder;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
 
+import static org.apache.hadoop.io.erasurecode.CoderRegistry.IO_ERASURECODE_CODER_NAME_XOR_DEFAULT;
+import static org.apache.hadoop.io.erasurecode.ErasureCodeConstants.XOR_CODEC_NAME;
+
 /**
  * A raw coder factory for raw XOR coder.
  */
@@ -34,5 +37,15 @@ public class XORRawErasureCoderFactory implements RawErasureCoderFactory {
   @Override
   public RawErasureDecoder createDecoder(ErasureCoderOptions coderOptions) {
     return new XORRawDecoder(coderOptions);
+  }
+
+  @Override
+  public String getCoderName() {
+    return IO_ERASURECODE_CODER_NAME_XOR_DEFAULT;
+  }
+
+  @Override
+  public String getCodecName() {
+    return XOR_CODEC_NAME;
   }
 }

@@ -18,7 +18,6 @@
 package org.apache.hadoop.io.erasurecode;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -29,18 +28,12 @@ import org.apache.hadoop.io.erasurecode.codec.RSErasureCodec;
 import org.apache.hadoop.io.erasurecode.codec.XORErasureCodec;
 import org.apache.hadoop.io.erasurecode.coder.ErasureDecoder;
 import org.apache.hadoop.io.erasurecode.coder.ErasureEncoder;
-import org.apache.hadoop.io.erasurecode.rawcoder.NativeRSRawErasureCoderFactory;
-import org.apache.hadoop.io.erasurecode.rawcoder.NativeXORRawErasureCoderFactory;
-import org.apache.hadoop.io.erasurecode.rawcoder.RSRawErasureCoderFactory;
-import org.apache.hadoop.io.erasurecode.rawcoder.RSRawErasureCoderFactoryLegacy;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureDecoder;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureEncoder;
-import org.apache.hadoop.io.erasurecode.rawcoder.XORRawErasureCoderFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Map;
 
 /**
  * A codec & coder utility to help create coders conveniently.
@@ -78,27 +71,12 @@ public final class CodecUtil {
   /** Comma separated raw codec name. The first coder is prior to the latter. */
   public static final String IO_ERASURECODE_CODEC_RS_LEGACY_RAWCODERS_KEY =
           IO_ERASURECODE_CODEC + "rs-legacy.rawcoders";
-  public static final String IO_ERASURECODE_CODEC_RS_LEGACY_RAWCODERS_DEFAULT =
-          RSRawErasureCoderFactoryLegacy.class.getCanonicalName();
   public static final String IO_ERASURECODE_CODEC_RS_RAWCODERS_KEY =
           IO_ERASURECODE_CODEC + "rs.rawcoders";
-  public static final String IO_ERASURECODE_CODEC_RS_RAWCODERS_DEFAULT =
-          NativeRSRawErasureCoderFactory.class.getCanonicalName() +
-                  "," + RSRawErasureCoderFactory.class.getCanonicalName();
 
   /** Raw coder factory for the XOR codec. */
   public static final String IO_ERASURECODE_CODEC_XOR_RAWCODERS_KEY =
           IO_ERASURECODE_CODEC + "xor.rawcoders";
-  public static final String IO_ERASURECODE_CODEC_XOR_RAWCODERS_DEFAULT =
-          NativeXORRawErasureCoderFactory.class.getCanonicalName() +
-                  "," + XORRawErasureCoderFactory.class.getCanonicalName();
-
-  // Default coders for each codec names.
-  public static final Map<String, String> DEFAULT_CODERS_MAP = ImmutableMap.of(
-          "rs",         IO_ERASURECODE_CODEC_RS_RAWCODERS_DEFAULT,
-          "rs-legacy",  IO_ERASURECODE_CODEC_RS_LEGACY_RAWCODERS_DEFAULT,
-          "xor",        IO_ERASURECODE_CODEC_XOR_RAWCODERS_DEFAULT
-  );
 
   private CodecUtil() { }
 

@@ -18,12 +18,10 @@
 package org.apache.hadoop.io.erasurecode;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.io.erasurecode.rawcoder.NativeRSRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.RSRawDecoder;
 import org.apache.hadoop.io.erasurecode.rawcoder.RSRawDecoderLegacy;
 import org.apache.hadoop.io.erasurecode.rawcoder.RSRawEncoder;
 import org.apache.hadoop.io.erasurecode.rawcoder.RSRawEncoderLegacy;
-import org.apache.hadoop.io.erasurecode.rawcoder.RSRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureDecoder;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureEncoder;
 import org.apache.hadoop.io.erasurecode.rawcoder.XORRawDecoder;
@@ -50,52 +48,52 @@ public class TestCodecRawCoderMapping {
   @Test
   public void testRSDefaultRawCoder() {
     ErasureCoderOptions coderOptions = new ErasureCoderOptions(
-            numDataUnit, numParityUnit);
+        numDataUnit, numParityUnit);
     // should return default raw coder of rs codec
     RawErasureEncoder encoder = CodecUtil.createRawEncoder(
-            conf, ErasureCodeConstants.RS_CODEC_NAME, coderOptions);
+        conf, ErasureCodeConstants.RS_CODEC_NAME, coderOptions);
     Assert.assertTrue(encoder instanceof RSRawEncoder);
     RawErasureDecoder decoder = CodecUtil.createRawDecoder(
-            conf, ErasureCodeConstants.RS_CODEC_NAME, coderOptions);
+        conf, ErasureCodeConstants.RS_CODEC_NAME, coderOptions);
     Assert.assertTrue(decoder instanceof RSRawDecoder);
 
     // should return default raw coder of rs-legacy codec
     encoder = CodecUtil.createRawEncoder(conf,
-            ErasureCodeConstants.RS_LEGACY_CODEC_NAME, coderOptions);
+        ErasureCodeConstants.RS_LEGACY_CODEC_NAME, coderOptions);
     Assert.assertTrue(encoder instanceof RSRawEncoderLegacy);
     decoder = CodecUtil.createRawDecoder(conf,
-            ErasureCodeConstants.RS_LEGACY_CODEC_NAME, coderOptions);
+        ErasureCodeConstants.RS_LEGACY_CODEC_NAME, coderOptions);
     Assert.assertTrue(decoder instanceof RSRawDecoderLegacy);
   }
 
   @Test
   public void testDedicatedRawCoderKey() {
     ErasureCoderOptions coderOptions = new ErasureCoderOptions(
-            numDataUnit, numParityUnit);
+        numDataUnit, numParityUnit);
 
     String dummyFactName = "DummyNoneExistingFactory";
     // set the dummy factory to raw coders then fail to create any rs raw coder.
     conf.set(CodecUtil.
-            IO_ERASURECODE_CODEC_RS_RAWCODERS_KEY, dummyFactName);
+        IO_ERASURECODE_CODEC_RS_RAWCODERS_KEY, dummyFactName);
     try {
       CodecUtil.createRawEncoder(conf,
-              ErasureCodeConstants.RS_CODEC_NAME, coderOptions);
+          ErasureCodeConstants.RS_CODEC_NAME, coderOptions);
       Assert.fail();
     } catch (Exception e) {
       GenericTestUtils.assertExceptionContains(
-              "Fail to create raw erasure encoder with given codec: rs", e);
+          "Fail to create raw erasure encoder with given codec: rs", e);
     }
 
     // now create the raw coder with rs-legacy, which should throw exception
     conf.set(CodecUtil.
-            IO_ERASURECODE_CODEC_RS_LEGACY_RAWCODERS_KEY, dummyFactName);
+        IO_ERASURECODE_CODEC_RS_LEGACY_RAWCODERS_KEY, dummyFactName);
     try {
       CodecUtil.createRawEncoder(conf,
-              ErasureCodeConstants.RS_LEGACY_CODEC_NAME, coderOptions);
+          ErasureCodeConstants.RS_LEGACY_CODEC_NAME, coderOptions);
       Assert.fail();
     } catch (Exception e) {
       GenericTestUtils.assertExceptionContains(
-              "Fail to create raw erasure encoder with given codec: rs", e);
+          "Fail to create raw erasure encoder with given codec: rs", e);
     }
   }
 
@@ -104,8 +102,8 @@ public class TestCodecRawCoderMapping {
     ErasureCoderOptions coderOptions = new ErasureCoderOptions(
             numDataUnit, numParityUnit);
     conf.set(CodecUtil.IO_ERASURECODE_CODEC_RS_RAWCODERS_KEY,
-            RSRawErasureCoderFactory.class.getCanonicalName() +
-                    "," + NativeRSRawErasureCoderFactory.class.getCanonicalName());
+        CoderRegistry.IO_ERASURECODE_CODER_NAME_RS_DEFAULT +
+        "," + CoderRegistry.IO_ERASURECODE_CODER_NAME_RS_ISAL);
     // should return default raw coder of rs codec
     RawErasureEncoder encoder = CodecUtil.createRawEncoder(
             conf, ErasureCodeConstants.RS_CODEC_NAME, coderOptions);
@@ -133,8 +131,7 @@ public class TestCodecRawCoderMapping {
     ErasureCoderOptions coderOptions = new ErasureCoderOptions(
             numDataUnit, numParityUnit);
     conf.set(CodecUtil.IO_ERASURECODE_CODEC_XOR_RAWCODERS_KEY,
-            "invalid-codec," +
-                    "org.apache.hadoop.io.erasurecode.rawcoder.XORRawErasureCoderFactory");
+        "invalid-codec," + CoderRegistry.IO_ERASURECODE_CODER_NAME_XOR_DEFAULT);
     // should return second coder specified by IO_ERASURECODE_CODEC_CODERS
     RawErasureEncoder encoder = CodecUtil.createRawEncoder(
             conf, ErasureCodeConstants.XOR_CODEC_NAME, coderOptions);

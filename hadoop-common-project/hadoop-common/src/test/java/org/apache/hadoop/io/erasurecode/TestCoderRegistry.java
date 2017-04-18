@@ -46,16 +46,16 @@ public class TestCoderRegistry {
   @Test
   public void testGetCoders() {
     List<RawErasureCoderFactory> coders = CoderRegistry.getInstance().getCoders(RS_CODEC_NAME);
-    assertEquals(coders.size(),2);
+    assertEquals(2,coders.size());
     assertEquals(IO_ERASURECODE_CODER_NAME_RS_DEFAULT, coders.get(0).getCoderName());
     assertEquals(IO_ERASURECODE_CODER_NAME_RS_ISAL, coders.get(1).getCoderName());
 
     coders = CoderRegistry.getInstance().getCoders(RS_LEGACY_CODEC_NAME);
-    assertEquals(coders.size(), 1);
+    assertEquals(1, coders.size());
     assertEquals(IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT, coders.get(0).getCoderName());
 
     coders = CoderRegistry.getInstance().getCoders(XOR_CODEC_NAME);
-    assertEquals(coders.size(), 2);
+    assertEquals(2, coders.size());
     assertEquals(IO_ERASURECODE_CODER_NAME_XOR_DEFAULT, coders.get(0).getCoderName());
     assertEquals(IO_ERASURECODE_CODER_NAME_XOR_ISAL, coders.get(1).getCoderName());
   }
@@ -63,6 +63,23 @@ public class TestCoderRegistry {
   @Test(expected = RuntimeException.class)
   public void testGetCodersWrong() {
     List<RawErasureCoderFactory> coders = CoderRegistry.getInstance().getCoders("WRONG_CODEC");
+  }
+
+  @Test
+  public void testGetCoderNames() {
+    String[] coderNames = CoderRegistry.getInstance().getCoderNames(RS_CODEC_NAME);
+    assertEquals(2, coderNames.length);
+    assertEquals(IO_ERASURECODE_CODER_NAME_RS_DEFAULT, coderNames[0]);
+    assertEquals(IO_ERASURECODE_CODER_NAME_RS_ISAL, coderNames[1]);
+
+    coderNames = CoderRegistry.getInstance().getCoderNames(RS_LEGACY_CODEC_NAME);
+    assertEquals(1, coderNames.length);
+    assertEquals(IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT, coderNames[0]);
+
+    coderNames = CoderRegistry.getInstance().getCoderNames(XOR_CODEC_NAME);
+    assertEquals(2, coderNames.length);
+    assertEquals(IO_ERASURECODE_CODER_NAME_XOR_DEFAULT, coderNames[0]);
+    assertEquals(IO_ERASURECODE_CODER_NAME_XOR_ISAL, coderNames[1]);
   }
 
   @Test
@@ -88,44 +105,9 @@ public class TestCoderRegistry {
     assertEquals(IO_ERASURECODE_CODER_NAME_XOR_ISAL, coder.getCoderName());
   }
 
-  @Test
+  @Test(expected = RuntimeException.class)
   public void testGetCoderByCoderNameWrong() {
     RawErasureCoderFactory coder = CoderRegistry.getInstance().getCoderByCoderName(
             RS_CODEC_NAME, "WRONG_RS");
-    assertEquals(IO_ERASURECODE_CODER_NAME_RS_DEFAULT, coder.getCoderName());
   }
-
-  @Test
-  public void testGetCoderByCoderNames() {
-    String[] coderNames = new String[]{IO_ERASURECODE_CODER_NAME_RS_ISAL, IO_ERASURECODE_CODER_NAME_RS_DEFAULT};
-    RawErasureCoderFactory coder = CoderRegistry.getInstance().getCoderByCoderNames(
-            RS_CODEC_NAME, coderNames);
-    assertEquals(IO_ERASURECODE_CODER_NAME_RS_ISAL, coder.getCoderName());
-
-    coderNames = new String[]{"WRONG", IO_ERASURECODE_CODER_NAME_RS_ISAL, IO_ERASURECODE_CODER_NAME_RS_DEFAULT};
-    coder = CoderRegistry.getInstance().getCoderByCoderNames(
-            RS_CODEC_NAME, coderNames);
-    assertEquals(IO_ERASURECODE_CODER_NAME_RS_ISAL, coder.getCoderName());
-
-    coderNames = new String[]{"WRONG"};
-    coder = CoderRegistry.getInstance().getCoderByCoderNames(
-            RS_CODEC_NAME, coderNames);
-    assertEquals(IO_ERASURECODE_CODER_NAME_RS_DEFAULT, coder.getCoderName());
-  }
-
-  @Test
-  public void testGetCoderByCoderNamesDefault() {
-    RawErasureCoderFactory coder = CoderRegistry.getInstance().getCoderByCoderNames(
-            RS_CODEC_NAME, null);
-    assertEquals(IO_ERASURECODE_CODER_NAME_RS_DEFAULT, coder.getCoderName());
-
-    coder = CoderRegistry.getInstance().getCoderByCoderNames(
-            RS_LEGACY_CODEC_NAME, null);
-    assertEquals(IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT, coder.getCoderName());
-
-    coder = CoderRegistry.getInstance().getCoderByCoderNames(
-            XOR_CODEC_NAME, null);
-    assertEquals(IO_ERASURECODE_CODER_NAME_XOR_DEFAULT, coder.getCoderName());
-  }
-
 }

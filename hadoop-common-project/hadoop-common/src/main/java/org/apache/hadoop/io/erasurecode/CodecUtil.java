@@ -18,7 +18,6 @@
 package org.apache.hadoop.io.erasurecode;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -168,40 +167,29 @@ public final class CodecUtil {
   }
 
   private static RawErasureCoderFactory createRawCoderFactory(
-          Configuration conf, String rawCoderFactoryKey) {
+          String rawCoderFactoryKey, String codec) {
     RawErasureCoderFactory fact;
-    try {
-      Class<? extends RawErasureCoderFactory> factClass = conf.getClassByName(
-              rawCoderFactoryKey).asSubclass(RawErasureCoderFactory.class);
-      fact = factClass.newInstance();
-    } catch (ClassNotFoundException | InstantiationException |
-            IllegalAccessException e) {
-      throw new RuntimeException("Failed to create raw coder factory", e);
-    }
-
-    if (fact == null) {
-      throw new RuntimeException("Failed to create raw coder factory");
-    }
+    fact = CoderRegistry.getInstance().getCoderByCoderName(codec, rawCoderFactoryKey);
 
     return fact;
   }
 
-  // Return comma separated coder names
-  private static String getRawCoders(Configuration conf, String codec) {
-    return conf.get(
+  // Return a list of coder names
+  private static String[] getRawCoders(Configuration conf, String codec) {
+    return conf.getStrings(
             IO_ERASURECODE_CODEC + codec + ".rawcoders",
-            DEFAULT_CODERS_MAP.getOrDefault(codec, codec)
+            CoderRegistry.getInstance().getCoderNames(codec)
     );
   }
 
   private static RawErasureEncoder createRawEncoderWithFallback(
           Configuration conf, String codec, ErasureCoderOptions coderOptions) {
-    String coders = getRawCoders(conf, codec);
-    for (String factName : Splitter.on(",").split(coders)) {
+    String[] coders = getRawCoders(conf, codec);
+    for (String factName : coders) {
       try {
         if (factName != null) {
-          RawErasureCoderFactory fact = createRawCoderFactory(conf,
-                  factName);
+          RawErasureCoderFactory fact = createRawCoderFactory(
+                  factName, codec);
           return fact.createEncoder(coderOptions);
         }
       } catch (LinkageError | Exception e) {
@@ -216,12 +204,12 @@ public final class CodecUtil {
 
   private static RawErasureDecoder createRawDecoderWithFallback(
           Configuration conf, String codec, ErasureCoderOptions coderOptions) {
-    String coders = getRawCoders(conf, codec);
-    for (String factName : Splitter.on(",").split(coders)) {
+    String[] coders = getRawCoders(conf, codec);
+    for (String factName : coders) {
       try {
         if (factName != null) {
-          RawErasureCoderFactory fact = createRawCoderFactory(conf,
-                  factName);
+          RawErasureCoderFactory fact = createRawCoderFactory(
+                  factName, codec);
           return fact.createDecoder(coderOptions);
         }
       } catch (LinkageError | Exception e) {

@@ -32,7 +32,7 @@ public class CoderRegistry {
   public static final String IO_ERASURECODE_CODER_NAME_XOR_ISAL = "xor_isal";
   public static final String IO_ERASURECODE_CODER_NAME_RS_DEFAULT = "rs_java";
   public static final String IO_ERASURECODE_CODER_NAME_RS_ISAL = "rs_isal";
-  public static final String IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT = "rs-legacy_isal";
+  public static final String IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT = "rs-legacy_java";
 
   private static CoderRegistry instance = new CoderRegistry();
 
@@ -82,9 +82,26 @@ public class CoderRegistry {
   }
 
   /**
-   * Get all coder implementations of the given codec
+   * Get all coder names of the given codec.
    * @param codecName the name of codec
    * @return a list of all coder names
+   */
+  public String[] getCoderNames(String codecName) {
+    List<RawErasureCoderFactory> coders = coderMap.get(codecName);
+    if (coders == null) {
+      throw new RuntimeException("No available raw coder factory for " + codecName);
+    }
+    List<String> coderNames = new ArrayList<String>();
+    for (RawErasureCoderFactory coder : coders) {
+      coderNames.add(coder.getCoderName());
+    }
+    return coderNames.toArray(new String[0]);
+  }
+
+  /**
+   * Get all coder factories of the given codec.
+   * @param codecName the name of codec
+   * @return a list of all coder factories
    */
   public List<RawErasureCoderFactory> getCoders(String codecName) {
     List<RawErasureCoderFactory> coders = coderMap.get(codecName);
@@ -95,7 +112,7 @@ public class CoderRegistry {
   }
 
   /**
-   * Get all codec names
+   * Get all codec names.
    * @return a set of all codec names
    */
   public Set<String> getCodecs() {
@@ -103,10 +120,10 @@ public class CoderRegistry {
   }
 
   /**
-   * Get a specific coder factory defined by code name and coder name
+   * Get a specific coder factory defined by code name and coder name.
    * @param codecName name of the codec
    * @param coderName name of the coder
-   * @return the specific coder or default
+   * @return the specific coder
    */
   public RawErasureCoderFactory getCoderByCoderName(String codecName, String coderName) {
     List<RawErasureCoderFactory> coders = getCoders(codecName);
@@ -118,34 +135,7 @@ public class CoderRegistry {
       }
     }
 
-    // if not found, use default
-    return coders.get(0);
-  }
-
-  /**
-   * Get a specific coder factory according to the order of coder names
-   * @param codecName name of the codec
-   * @param coderNames a list of coder names
-   * @return the specific coder or default
-   */
-  public RawErasureCoderFactory getCoderByCoderNames(String codecName, String[] coderNames) {
-    List<RawErasureCoderFactory> coders = getCoders(codecName);
-
-    // use default order if not defined
-    if (coderNames == null || coderNames.length == 0) {
-      return coders.get(0);
-    }
-
-    // get the coder factory according to the input order
-    for (String coderName : coderNames) {
-      for (RawErasureCoderFactory coder : coders) {
-        if (coder.getCoderName().equals(coderName)) {
-          return coder;
-        }
-      }
-    }
-
-    // if not found, use default
-    return coders.get(0);
+    // if not found, throw exception
+    throw new RuntimeException("No implementation for the given coder " + coderName);
   }
 }

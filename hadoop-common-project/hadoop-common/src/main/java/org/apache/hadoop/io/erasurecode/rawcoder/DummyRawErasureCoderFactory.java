@@ -27,7 +27,7 @@ import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
  */
 @InterfaceAudience.Private
 public class DummyRawErasureCoderFactory implements RawErasureCoderFactory {
-  public static final String CODER_NAME_DUMMY_DUMMY = "dummy_dummy";
+  public static final String CODER_NAME = "dummy_dummy";
 
   @Override
   public RawErasureEncoder createEncoder(ErasureCoderOptions coderOptions) {
@@ -41,7 +41,7 @@ public class DummyRawErasureCoderFactory implements RawErasureCoderFactory {
 
   @Override
   public String getCoderName() {
-    return CODER_NAME_DUMMY_DUMMY;
+    return CODER_NAME;
   }
 
   @Override

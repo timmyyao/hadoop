@@ -28,7 +28,7 @@ import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
 @InterfaceAudience.Private
 public class RSRawErasureCoderFactory implements RawErasureCoderFactory {
 
-  public static final String CODER_NAME_RS_JAVA = "rs_java";
+  public static final String CODER_NAME = "rs_java";
 
   @Override
   public RawErasureEncoder createEncoder(ErasureCoderOptions coderOptions) {
@@ -42,7 +42,7 @@ public class RSRawErasureCoderFactory implements RawErasureCoderFactory {
 
   @Override
   public String getCoderName() {
-    return CODER_NAME_RS_JAVA;
+    return CODER_NAME;
   }
 
   @Override

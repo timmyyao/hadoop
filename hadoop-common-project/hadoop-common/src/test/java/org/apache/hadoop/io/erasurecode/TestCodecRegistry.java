@@ -64,7 +64,7 @@ public class TestCodecRegistry {
     assertTrue(coders.get(1) instanceof XORRawErasureCoderFactory);
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testGetCodersWrong() {
     List<RawErasureCoderFactory> coders =
         CodecRegistry.getInstance().getCoders("WRONG_CODEC");
@@ -75,55 +75,55 @@ public class TestCodecRegistry {
     String[] coderNames = CodecRegistry.getInstance().
         getCoderNames(ErasureCodeConstants.RS_CODEC_NAME);
     assertEquals(2, coderNames.length);
-    assertEquals(NativeRSRawErasureCoderFactory.CODER_NAME_RS_ISAL,
+    assertEquals(NativeRSRawErasureCoderFactory.CODER_NAME,
         coderNames[0]);
-    assertEquals(RSRawErasureCoderFactory.CODER_NAME_RS_JAVA, coderNames[1]);
+    assertEquals(RSRawErasureCoderFactory.CODER_NAME, coderNames[1]);
 
     coderNames = CodecRegistry.getInstance().
         getCoderNames(ErasureCodeConstants.RS_LEGACY_CODEC_NAME);
     assertEquals(1, coderNames.length);
-    assertEquals(RSRawErasureCoderFactoryLegacy.CODER_NAME_RS_LEGACY_JAVA,
+    assertEquals(RSRawErasureCoderFactoryLegacy.CODER_NAME,
         coderNames[0]);
 
     coderNames = CodecRegistry.getInstance().
         getCoderNames(ErasureCodeConstants.XOR_CODEC_NAME);
     assertEquals(2, coderNames.length);
-    assertEquals(NativeXORRawErasureCoderFactory.CODER_NAME_XOR_ISAL,
+    assertEquals(NativeXORRawErasureCoderFactory.CODER_NAME,
         coderNames[0]);
-    assertEquals(XORRawErasureCoderFactory.CODER_NAME_XOR_JAVA, coderNames[1]);
+    assertEquals(XORRawErasureCoderFactory.CODER_NAME, coderNames[1]);
   }
 
   @Test
-  public void testGetCoderByCoderName() {
+  public void testGetCoderByName() {
     RawErasureCoderFactory coder = CodecRegistry.getInstance().
-        getCoderByCoderName(ErasureCodeConstants.RS_CODEC_NAME,
-        RSRawErasureCoderFactory.CODER_NAME_RS_JAVA);
+            getCoderByName(ErasureCodeConstants.RS_CODEC_NAME,
+        RSRawErasureCoderFactory.CODER_NAME);
     assertTrue(coder instanceof RSRawErasureCoderFactory);
 
-    coder = CodecRegistry.getInstance().getCoderByCoderName(
+    coder = CodecRegistry.getInstance().getCoderByName(
         ErasureCodeConstants.RS_CODEC_NAME,
-        NativeRSRawErasureCoderFactory.CODER_NAME_RS_ISAL);
+        NativeRSRawErasureCoderFactory.CODER_NAME);
     assertTrue(coder instanceof NativeRSRawErasureCoderFactory);
 
-    coder = CodecRegistry.getInstance().getCoderByCoderName(
+    coder = CodecRegistry.getInstance().getCoderByName(
         ErasureCodeConstants.RS_LEGACY_CODEC_NAME,
-        RSRawErasureCoderFactoryLegacy.CODER_NAME_RS_LEGACY_JAVA);
+        RSRawErasureCoderFactoryLegacy.CODER_NAME);
     assertTrue(coder instanceof RSRawErasureCoderFactoryLegacy);
 
-    coder = CodecRegistry.getInstance().getCoderByCoderName(
+    coder = CodecRegistry.getInstance().getCoderByName(
         ErasureCodeConstants.XOR_CODEC_NAME,
-        XORRawErasureCoderFactory.CODER_NAME_XOR_JAVA);
+        XORRawErasureCoderFactory.CODER_NAME);
     assertTrue(coder instanceof XORRawErasureCoderFactory);
 
-    coder = CodecRegistry.getInstance().getCoderByCoderName(
+    coder = CodecRegistry.getInstance().getCoderByName(
         ErasureCodeConstants.XOR_CODEC_NAME,
-        NativeXORRawErasureCoderFactory.CODER_NAME_XOR_ISAL);
+        NativeXORRawErasureCoderFactory.CODER_NAME);
     assertTrue(coder instanceof NativeXORRawErasureCoderFactory);
   }
 
-  @Test(expected = RuntimeException.class)
-  public void testGetCoderByCoderNameWrong() {
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetCoderByNameWrong() {
     RawErasureCoderFactory coder = CodecRegistry.getInstance().
-        getCoderByCoderName(ErasureCodeConstants.RS_CODEC_NAME, "WRONG_RS");
+            getCoderByName(ErasureCodeConstants.RS_CODEC_NAME, "WRONG_RS");
   }
 }

@@ -29,7 +29,7 @@ import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
 @InterfaceAudience.Private
 public class NativeXORRawErasureCoderFactory implements RawErasureCoderFactory {
 
-  public static final String CODER_NAME_XOR_ISAL = "xor_isal";
+  public static final String CODER_NAME = "xor_native";
 
   @Override
   public RawErasureEncoder createEncoder(ErasureCoderOptions coderOptions) {
@@ -43,7 +43,7 @@ public class NativeXORRawErasureCoderFactory implements RawErasureCoderFactory {
 
   @Override
   public String getCoderName() {
-    return CODER_NAME_XOR_ISAL;
+    return CODER_NAME;
   }
 
   @Override

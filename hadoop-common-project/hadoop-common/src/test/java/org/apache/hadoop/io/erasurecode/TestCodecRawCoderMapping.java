@@ -105,8 +105,8 @@ public class TestCodecRawCoderMapping {
     ErasureCoderOptions coderOptions = new ErasureCoderOptions(
             numDataUnit, numParityUnit);
     conf.set(CodecUtil.IO_ERASURECODE_CODEC_RS_RAWCODERS_KEY,
-        RSRawErasureCoderFactory.CODER_NAME_RS_JAVA +
-        "," + NativeRSRawErasureCoderFactory.CODER_NAME_RS_ISAL);
+        RSRawErasureCoderFactory.CODER_NAME +
+        "," + NativeRSRawErasureCoderFactory.CODER_NAME);
     // should return default raw coder of rs codec
     RawErasureEncoder encoder = CodecUtil.createRawEncoder(
             conf, ErasureCodeConstants.RS_CODEC_NAME, coderOptions);
@@ -134,7 +134,7 @@ public class TestCodecRawCoderMapping {
     ErasureCoderOptions coderOptions = new ErasureCoderOptions(
             numDataUnit, numParityUnit);
     conf.set(CodecUtil.IO_ERASURECODE_CODEC_XOR_RAWCODERS_KEY,
-        "invalid-codec," + XORRawErasureCoderFactory.CODER_NAME_XOR_JAVA);
+        "invalid-codec," + XORRawErasureCoderFactory.CODER_NAME);
     // should return second coder specified by IO_ERASURECODE_CODEC_CODERS
     RawErasureEncoder encoder = CodecUtil.createRawEncoder(
             conf, ErasureCodeConstants.XOR_CODEC_NAME, coderOptions);

@@ -147,7 +147,7 @@ public final class CodecUtil {
   private static RawErasureCoderFactory createRawCoderFactory(
       String coderName, String codec) {
     RawErasureCoderFactory fact;
-    fact = CodecRegistry.getInstance().getCoderByCoderName(
+    fact = CodecRegistry.getInstance().getCoderByName(
         codec, coderName);
 
     return fact;

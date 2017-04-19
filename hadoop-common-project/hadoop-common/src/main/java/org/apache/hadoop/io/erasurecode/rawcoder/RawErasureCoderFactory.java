@@ -44,19 +44,19 @@ public interface RawErasureCoderFactory {
   RawErasureDecoder createDecoder(ErasureCoderOptions coderOptions);
 
   /**
-   * Get the name of the coder
+   * Get the name of the coder.
    * @return coder name
    */
   String getCoderName();
 
   /**
-   * Get the name of its codec
+   * Get the name of its codec.
    * @return codec name
    */
   String getCodecName();
 
   /**
-   * Verify if the EC schema is legal
+   * Verify if the EC schema is legal.
    * @param schema
    * @param cellSize
    * @return

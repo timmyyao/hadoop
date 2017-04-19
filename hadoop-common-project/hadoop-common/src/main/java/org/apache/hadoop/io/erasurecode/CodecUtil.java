@@ -145,34 +145,35 @@ public final class CodecUtil {
   }
 
   private static RawErasureCoderFactory createRawCoderFactory(
-      String rawCoderFactoryKey, String codec) {
+      String coderName, String codec) {
     RawErasureCoderFactory fact;
-    fact = CoderRegistry.getInstance().getCoderByCoderName(codec, rawCoderFactoryKey);
+    fact = CodecRegistry.getInstance().getCoderByCoderName(
+        codec, coderName);
 
     return fact;
   }
 
   // Return a list of coder names
-  private static String[] getRawCoders(Configuration conf, String codec) {
+  private static String[] getCoderNames(Configuration conf, String codec) {
     return conf.getStrings(
       IO_ERASURECODE_CODEC + codec + ".rawcoders",
-      CoderRegistry.getInstance().getCoderNames(codec)
+      CodecRegistry.getInstance().getCoderNames(codec)
     );
   }
 
   private static RawErasureEncoder createRawEncoderWithFallback(
       Configuration conf, String codec, ErasureCoderOptions coderOptions) {
-    String[] coders = getRawCoders(conf, codec);
-    for (String factName : coders) {
+    String[] coderNames = getCoderNames(conf, codec);
+    for (String coderName : coderNames) {
       try {
-        if (factName != null) {
+        if (coderName != null) {
           RawErasureCoderFactory fact = createRawCoderFactory(
-              factName, codec);
+              coderName, codec);
           return fact.createEncoder(coderOptions);
         }
       } catch (LinkageError | Exception e) {
         // Fallback to next coder if possible
-        LOG.warn("Failed to create raw erasure encoder " + factName +
+        LOG.warn("Failed to create raw erasure encoder " + coderName +
             ", fallback to next codec if possible", e);
       }
     }
@@ -182,7 +183,7 @@ public final class CodecUtil {
 
   private static RawErasureDecoder createRawDecoderWithFallback(
           Configuration conf, String codec, ErasureCoderOptions coderOptions) {
-    String[] coders = getRawCoders(conf, codec);
+    String[] coders = getCoderNames(conf, codec);
     for (String factName : coders) {
       try {
         if (factName != null) {

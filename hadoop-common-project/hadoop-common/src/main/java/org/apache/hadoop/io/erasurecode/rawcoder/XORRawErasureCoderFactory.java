@@ -19,16 +19,16 @@ package org.apache.hadoop.io.erasurecode.rawcoder;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.io.erasurecode.ECSchema;
+import org.apache.hadoop.io.erasurecode.ErasureCodeConstants;
 import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
-
-import static org.apache.hadoop.io.erasurecode.CoderRegistry.IO_ERASURECODE_CODER_NAME_XOR_DEFAULT;
-import static org.apache.hadoop.io.erasurecode.ErasureCodeConstants.XOR_CODEC_NAME;
 
 /**
  * A raw coder factory for raw XOR coder.
  */
 @InterfaceAudience.Private
 public class XORRawErasureCoderFactory implements RawErasureCoderFactory {
+
+  public static final String CODER_NAME_XOR_JAVA = "xor_java";
 
   @Override
   public RawErasureEncoder createEncoder(ErasureCoderOptions coderOptions) {
@@ -42,12 +42,12 @@ public class XORRawErasureCoderFactory implements RawErasureCoderFactory {
 
   @Override
   public String getCoderName() {
-    return IO_ERASURECODE_CODER_NAME_XOR_DEFAULT;
+    return CODER_NAME_XOR_JAVA;
   }
 
   @Override
   public String getCodecName() {
-    return XOR_CODEC_NAME;
+    return ErasureCodeConstants.XOR_CODEC_NAME;
   }
 
   @Override

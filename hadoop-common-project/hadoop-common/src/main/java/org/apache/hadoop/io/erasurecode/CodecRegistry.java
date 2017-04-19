@@ -17,64 +17,60 @@
  */
 package org.apache.hadoop.io.erasurecode;
 
+import org.apache.hadoop.io.erasurecode.rawcoder.NativeRSRawErasureCoderFactory;
+import org.apache.hadoop.io.erasurecode.rawcoder.NativeXORRawErasureCoderFactory;
+import org.apache.hadoop.io.erasurecode.rawcoder.RSRawErasureCoderFactory;
+import org.apache.hadoop.io.erasurecode.rawcoder.RSRawErasureCoderFactoryLegacy;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureCoderFactory;
+import org.apache.hadoop.io.erasurecode.rawcoder.XORRawErasureCoderFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.Set;
 
 /**
  * This class registers all coder implementation.
  */
-public class CoderRegistry {
-  public static final String DUMMY_CODEC_NAME = "dummy";
+public final class CodecRegistry {
 
-  public static final String IO_ERASURECODE_CODER_NAME_DUMMY = "dummy";
-  public static final String IO_ERASURECODE_CODER_NAME_XOR_DEFAULT = "xor_java";
-  public static final String IO_ERASURECODE_CODER_NAME_XOR_ISAL = "xor_isal";
-  public static final String IO_ERASURECODE_CODER_NAME_RS_DEFAULT = "rs_java";
-  public static final String IO_ERASURECODE_CODER_NAME_RS_ISAL = "rs_isal";
-  public static final String IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT = "rs-legacy_java";
+  private static CodecRegistry instance = new CodecRegistry();
 
-  private static CoderRegistry instance = new CoderRegistry();
-
-  public static CoderRegistry getInstance() {
+  public static CodecRegistry getInstance() {
     return instance;
   }
 
   private Map<String, List<RawErasureCoderFactory>> coderMap;
 
-  private CoderRegistry() {
+  private CodecRegistry() {
     coderMap = new HashMap<String, List<RawErasureCoderFactory>>();
-    final ServiceLoader<RawErasureCoderFactory> coderFactories = ServiceLoader.load(RawErasureCoderFactory.class);
+    final ServiceLoader<RawErasureCoderFactory> coderFactories =
+        ServiceLoader.load(RawErasureCoderFactory.class);
     for (RawErasureCoderFactory coderFactory : coderFactories) {
       String codecName = coderFactory.getCodecName();
-      String coderName = coderFactory.getCoderName();
       List<RawErasureCoderFactory> coders = coderMap.get(codecName);
       if (coders == null) {
         coders = new ArrayList<RawErasureCoderFactory>();
         coders.add(coderFactory);
         coderMap.put(codecName, coders);
-      }
-      else {
-        // put DEFAULT coder in the first
-        if (coderName.equals(IO_ERASURECODE_CODER_NAME_XOR_DEFAULT) ||
-                coderName.equals(IO_ERASURECODE_CODER_NAME_RS_DEFAULT) ||
-                coderName.equals(IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT)) {
+      } else {
+        // put ISAL factories first, JAVA factories second
+        if (coderFactory instanceof NativeRSRawErasureCoderFactory ||
+            coderFactory instanceof NativeXORRawErasureCoderFactory) {
           coders.add(0, coderFactory);
-        }
-        // put ISAL coder after DEFAULT
-        else if (coderName.equals(IO_ERASURECODE_CODER_NAME_XOR_ISAL) ||
-                coderName.equals(IO_ERASURECODE_CODER_NAME_RS_ISAL)) {
-          String firstCoderName = coders.get(0).getCoderName();
-          if (firstCoderName.equals(IO_ERASURECODE_CODER_NAME_XOR_DEFAULT) ||
-                  firstCoderName.equals(IO_ERASURECODE_CODER_NAME_RS_DEFAULT) ||
-                  firstCoderName.equals(IO_ERASURECODE_CODER_NAME_RSLEGACY_DEFAULT)) {
+        } else if (coderFactory instanceof RSRawErasureCoderFactory ||
+            coderFactory instanceof XORRawErasureCoderFactory ||
+            coderFactory instanceof RSRawErasureCoderFactoryLegacy) {
+          RawErasureCoderFactory firstCoderFactory = coders.get(0);
+          if (firstCoderFactory instanceof NativeRSRawErasureCoderFactory ||
+              firstCoderFactory instanceof NativeXORRawErasureCoderFactory) {
             coders.add(1, coderFactory);
-          }
-          else {
+          } else {
             coders.add(0, coderFactory);
           }
-        }
-        else {
+        } else {
           coders.add(coderFactory);
         }
       }
@@ -89,7 +85,8 @@ public class CoderRegistry {
   public String[] getCoderNames(String codecName) {
     List<RawErasureCoderFactory> coders = coderMap.get(codecName);
     if (coders == null) {
-      throw new RuntimeException("No available raw coder factory for " + codecName);
+      throw new RuntimeException("No available raw coder factory for "
+          + codecName);
     }
     List<String> coderNames = new ArrayList<String>();
     for (RawErasureCoderFactory coder : coders) {
@@ -106,7 +103,8 @@ public class CoderRegistry {
   public List<RawErasureCoderFactory> getCoders(String codecName) {
     List<RawErasureCoderFactory> coders = coderMap.get(codecName);
     if (coders == null) {
-      throw new RuntimeException("No available raw coder factory for " + codecName);
+      throw new RuntimeException("No available raw coder factory for "
+          + codecName);
     }
     return coders;
   }
@@ -125,7 +123,8 @@ public class CoderRegistry {
    * @param coderName name of the coder
    * @return the specific coder
    */
-  public RawErasureCoderFactory getCoderByCoderName(String codecName, String coderName) {
+  public RawErasureCoderFactory getCoderByCoderName(
+      String codecName, String coderName) {
     List<RawErasureCoderFactory> coders = getCoders(codecName);
 
     // find the RawErasureCoderFactory with the name of coderName
@@ -136,6 +135,7 @@ public class CoderRegistry {
     }
 
     // if not found, throw exception
-    throw new RuntimeException("No implementation for the given coder " + coderName);
+    throw new RuntimeException("No implementation for the given coder "
+        + coderName);
   }
 }

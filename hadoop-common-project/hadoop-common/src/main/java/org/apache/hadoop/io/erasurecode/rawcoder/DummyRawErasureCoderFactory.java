@@ -19,16 +19,16 @@ package org.apache.hadoop.io.erasurecode.rawcoder;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.io.erasurecode.ECSchema;
+import org.apache.hadoop.io.erasurecode.ErasureCodeConstants;
 import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
-
-import static org.apache.hadoop.io.erasurecode.CoderRegistry.DUMMY_CODEC_NAME;
-import static org.apache.hadoop.io.erasurecode.CoderRegistry.IO_ERASURECODE_CODER_NAME_DUMMY;
 
 /**
  * A raw erasure coder factory for dummy raw coders.
  */
 @InterfaceAudience.Private
 public class DummyRawErasureCoderFactory implements RawErasureCoderFactory {
+  public static final String CODER_NAME_DUMMY_DUMMY = "dummy_dummy";
+
   @Override
   public RawErasureEncoder createEncoder(ErasureCoderOptions coderOptions) {
     return new DummyRawEncoder(coderOptions);
@@ -41,12 +41,12 @@ public class DummyRawErasureCoderFactory implements RawErasureCoderFactory {
 
   @Override
   public String getCoderName() {
-    return IO_ERASURECODE_CODER_NAME_DUMMY;
+    return CODER_NAME_DUMMY_DUMMY;
   }
 
   @Override
   public String getCodecName() {
-    return DUMMY_CODEC_NAME;
+    return ErasureCodeConstants.DUMMY_CODEC_NAME;
   }
 
   @Override

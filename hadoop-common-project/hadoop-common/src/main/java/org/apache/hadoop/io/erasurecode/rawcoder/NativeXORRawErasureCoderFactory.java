@@ -19,10 +19,8 @@ package org.apache.hadoop.io.erasurecode.rawcoder;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.io.erasurecode.ECSchema;
+import org.apache.hadoop.io.erasurecode.ErasureCodeConstants;
 import org.apache.hadoop.io.erasurecode.ErasureCoderOptions;
-
-import static org.apache.hadoop.io.erasurecode.CoderRegistry.IO_ERASURECODE_CODER_NAME_XOR_ISAL;
-import static org.apache.hadoop.io.erasurecode.ErasureCodeConstants.XOR_CODEC_NAME;
 
 /**
  * A raw coder factory for xor coder in native using Intel ISA-L library.
@@ -30,6 +28,8 @@ import static org.apache.hadoop.io.erasurecode.ErasureCodeConstants.XOR_CODEC_NA
 
 @InterfaceAudience.Private
 public class NativeXORRawErasureCoderFactory implements RawErasureCoderFactory {
+
+  public static final String CODER_NAME_XOR_ISAL = "xor_isal";
 
   @Override
   public RawErasureEncoder createEncoder(ErasureCoderOptions coderOptions) {
@@ -43,12 +43,12 @@ public class NativeXORRawErasureCoderFactory implements RawErasureCoderFactory {
 
   @Override
   public String getCoderName() {
-    return IO_ERASURECODE_CODER_NAME_XOR_ISAL;
+    return CODER_NAME_XOR_ISAL;
   }
 
   @Override
   public String getCodecName() {
-    return XOR_CODEC_NAME;
+    return ErasureCodeConstants.XOR_CODEC_NAME;
   }
 
   @Override

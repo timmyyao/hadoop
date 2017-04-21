@@ -17,6 +17,9 @@
  */
 package org.apache.hadoop.io.erasurecode;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.io.erasurecode.rawcoder.NativeRSRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.NativeXORRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureCoderFactory;
@@ -30,9 +33,15 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * This class registers all coder implementation.
+ * This class registers all coder implementations.
+ *
+ * {@link CodecRegistry} maps codec names to coder factories. All coder
+ * factories are dynamically identified and loaded using ServiceLoader.
  */
+@InterfaceAudience.Private
 public final class CodecRegistry {
+
+  private static final Log LOG = LogFactory.getLog(CodecRegistry.class);
 
   private static CodecRegistry instance = new CodecRegistry();
 
@@ -43,23 +52,44 @@ public final class CodecRegistry {
   private Map<String, List<RawErasureCoderFactory>> coderMap;
 
   private CodecRegistry() {
-    coderMap = new HashMap<String, List<RawErasureCoderFactory>>();
+    coderMap = new HashMap<>();
     final ServiceLoader<RawErasureCoderFactory> coderFactories =
         ServiceLoader.load(RawErasureCoderFactory.class);
     for (RawErasureCoderFactory coderFactory : coderFactories) {
       String codecName = coderFactory.getCodecName();
       List<RawErasureCoderFactory> coders = coderMap.get(codecName);
       if (coders == null) {
-        coders = new ArrayList<RawErasureCoderFactory>();
+        coders = new ArrayList<>();
         coders.add(coderFactory);
         coderMap.put(codecName, coders);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Codec registered: codec = " + coderFactory.getCodecName()
+              + ", coder = " + coderFactory.getCoderName());
+        }
       } else {
-        // put native coder first
-        if (coderFactory instanceof NativeRSRawErasureCoderFactory ||
-            coderFactory instanceof NativeXORRawErasureCoderFactory) {
-          coders.add(0, coderFactory);
-        } else {
-          coders.add(coderFactory);
+        Boolean hasConflit = false;
+        for (RawErasureCoderFactory coder : coders) {
+          if (coder.getCoderName().equals(coderFactory.getCoderName())) {
+            hasConflit = true;
+            LOG.error("Coder " + coderFactory.getClass().getName() +
+                " cannot be registered because its coder name " + coderFactory
+                + " has conflict with " + coder.getClass().getName());
+            break;
+          }
+        }
+        if (!hasConflit) {
+          // set native coders as default if user does not
+          // specify a fallback order
+          if (coderFactory instanceof NativeRSRawErasureCoderFactory ||
+                  coderFactory instanceof NativeXORRawErasureCoderFactory) {
+            coders.add(0, coderFactory);
+          } else {
+            coders.add(coderFactory);
+          }
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Codec registered: codec = " + coderFactory.getCodecName()
+                + ", coder = " + coderFactory.getCoderName());
+          }
         }
       }
     }
@@ -99,12 +129,12 @@ public final class CodecRegistry {
    * Get all codec names.
    * @return a set of all codec names
    */
-  public Set<String> getCodecs() {
+  public Set<String> getCodecNames() {
     return coderMap.keySet();
   }
 
   /**
-   * Get a specific coder factory defined by code name and coder name.
+   * Get a specific coder factory defined by codec name and coder name.
    * @param codecName name of the codec
    * @param coderName name of the coder
    * @return the specific coder

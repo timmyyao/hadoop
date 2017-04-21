@@ -37,7 +37,7 @@ import static org.junit.Assert.assertTrue;
 public class TestCodecRegistry {
   @Test
   public void testGetCodecs() {
-    Set<String> codecs = CodecRegistry.getInstance().getCodecs();
+    Set<String> codecs = CodecRegistry.getInstance().getCodecNames();
     assertEquals(3, codecs.size());
     assertTrue(codecs.contains(ErasureCodeConstants.RS_CODEC_NAME));
     assertTrue(codecs.contains(ErasureCodeConstants.RS_LEGACY_CODEC_NAME));
@@ -47,18 +47,18 @@ public class TestCodecRegistry {
   @Test
   public void testGetCoders() {
     List<RawErasureCoderFactory> coders = CodecRegistry.getInstance().
-        getCoders(ErasureCodeConstants.RS_CODEC_NAME);
+            getCoders(ErasureCodeConstants.RS_CODEC_NAME);
     assertEquals(2, coders.size());
     assertTrue(coders.get(0) instanceof NativeRSRawErasureCoderFactory);
     assertTrue(coders.get(1) instanceof RSRawErasureCoderFactory);
 
     coders = CodecRegistry.getInstance().
-        getCoders(ErasureCodeConstants.RS_LEGACY_CODEC_NAME);
+            getCoders(ErasureCodeConstants.RS_LEGACY_CODEC_NAME);
     assertEquals(1, coders.size());
     assertTrue(coders.get(0) instanceof RSRawErasureCoderFactoryLegacy);
 
     coders = CodecRegistry.getInstance().
-        getCoders(ErasureCodeConstants.XOR_CODEC_NAME);
+            getCoders(ErasureCodeConstants.XOR_CODEC_NAME);
     assertEquals(2, coders.size());
     assertTrue(coders.get(0) instanceof NativeXORRawErasureCoderFactory);
     assertTrue(coders.get(1) instanceof XORRawErasureCoderFactory);

@@ -145,60 +145,61 @@ public final class CodecUtil {
   }
 
   private static RawErasureCoderFactory createRawCoderFactory(
-      String coderName, String codec) {
+      String coderName, String codecName) {
     RawErasureCoderFactory fact;
-    fact = CodecRegistry.getInstance().getCoderByName(
-        codec, coderName);
+    fact = CodecRegistry.getInstance().
+            getCoderByName(codecName, coderName);
 
     return fact;
   }
 
   // Return a list of coder names
-  private static String[] getCoderNames(Configuration conf, String codec) {
+  private static String[] getRawCoderNames(
+      Configuration conf, String codecName) {
     return conf.getStrings(
-      IO_ERASURECODE_CODEC + codec + ".rawcoders",
-      CodecRegistry.getInstance().getCoderNames(codec)
+      IO_ERASURECODE_CODEC + codecName + ".rawcoders",
+      CodecRegistry.getInstance().getCoderNames(codecName)
     );
   }
 
   private static RawErasureEncoder createRawEncoderWithFallback(
-      Configuration conf, String codec, ErasureCoderOptions coderOptions) {
-    String[] coderNames = getCoderNames(conf, codec);
-    for (String coderName : coderNames) {
+      Configuration conf, String codecName, ErasureCoderOptions coderOptions) {
+    String[] rawCoderNames = getRawCoderNames(conf, codecName);
+    for (String rawCoderName : rawCoderNames) {
       try {
-        if (coderName != null) {
+        if (rawCoderName != null) {
           RawErasureCoderFactory fact = createRawCoderFactory(
-              coderName, codec);
+              rawCoderName, codecName);
           return fact.createEncoder(coderOptions);
         }
       } catch (LinkageError | Exception e) {
         // Fallback to next coder if possible
-        LOG.warn("Failed to create raw erasure encoder " + coderName +
+        LOG.warn("Failed to create raw erasure encoder " + rawCoderName +
             ", fallback to next codec if possible", e);
       }
     }
     throw new IllegalArgumentException("Fail to create raw erasure " +
-       "encoder with given codec: " + codec);
+       "encoder with given codec: " + codecName);
   }
 
   private static RawErasureDecoder createRawDecoderWithFallback(
-          Configuration conf, String codec, ErasureCoderOptions coderOptions) {
-    String[] coders = getCoderNames(conf, codec);
-    for (String factName : coders) {
+      Configuration conf, String codecName, ErasureCoderOptions coderOptions) {
+    String[] coders = getRawCoderNames(conf, codecName);
+    for (String rawCoderName : coders) {
       try {
-        if (factName != null) {
+        if (rawCoderName != null) {
           RawErasureCoderFactory fact = createRawCoderFactory(
-              factName, codec);
+              rawCoderName, codecName);
           return fact.createDecoder(coderOptions);
         }
       } catch (LinkageError | Exception e) {
         // Fallback to next coder if possible
-        LOG.warn("Failed to create raw erasure decoder " + factName +
+        LOG.warn("Failed to create raw erasure decoder " + rawCoderName +
             ", fallback to next codec if possible", e);
       }
     }
     throw new IllegalArgumentException("Fail to create raw erasure " +
-            "encoder with given codec: " + codec);
+        "encoder with given codec: " + codecName);
   }
 
   private static ErasureCodec createCodec(Configuration conf,

@@ -22,9 +22,13 @@ import org.apache.hadoop.io.erasurecode.rawcoder.NativeXORRawErasureCoderFactory
 import org.apache.hadoop.io.erasurecode.rawcoder.RSRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.RSRawErasureCoderFactoryLegacy;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureCoderFactory;
+import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureDecoder;
+import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureEncoder;
 import org.apache.hadoop.io.erasurecode.rawcoder.XORRawErasureCoderFactory;
+import org.junit.AfterClass;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -75,8 +79,7 @@ public class TestCodecRegistry {
     String[] coderNames = CodecRegistry.getInstance().
         getCoderNames(ErasureCodeConstants.RS_CODEC_NAME);
     assertEquals(2, coderNames.length);
-    assertEquals(NativeRSRawErasureCoderFactory.CODER_NAME,
-        coderNames[0]);
+    assertEquals(NativeRSRawErasureCoderFactory.CODER_NAME, coderNames[0]);
     assertEquals(RSRawErasureCoderFactory.CODER_NAME, coderNames[1]);
 
     coderNames = CodecRegistry.getInstance().
@@ -125,5 +128,65 @@ public class TestCodecRegistry {
   public void testGetCoderByNameWrong() {
     RawErasureCoderFactory coder = CodecRegistry.getInstance().
             getCoderByName(ErasureCodeConstants.RS_CODEC_NAME, "WRONG_RS");
+  }
+
+  @AfterClass
+  public static void testUpdateCoders() {
+    class RSUserDefinedFactory implements RawErasureCoderFactory {
+      public RawErasureEncoder createEncoder(ErasureCoderOptions coderOptions) {
+        return null;
+      }
+
+      public RawErasureDecoder createDecoder(ErasureCoderOptions coderOptions) {
+        return null;
+      }
+
+      public String getCoderName() {
+        return "rs_userDefined";
+      }
+
+      public String getCodecName() {
+        return ErasureCodeConstants.RS_CODEC_NAME;
+      }
+    }
+
+    class RSUserDefinedIncorrectFactory implements RawErasureCoderFactory {
+      public RawErasureEncoder createEncoder(ErasureCoderOptions coderOptions) {
+        return null;
+      }
+
+      public RawErasureDecoder createDecoder(ErasureCoderOptions coderOptions) {
+        return null;
+      }
+
+      public String getCoderName() {
+        return "rs_java";
+      }
+
+      public String getCodecName() {
+        return ErasureCodeConstants.RS_CODEC_NAME;
+      }
+    }
+
+    List<RawErasureCoderFactory> userDefinedFactories = new ArrayList<>();
+    userDefinedFactories.add(new RSUserDefinedFactory());
+    userDefinedFactories.add(new RSUserDefinedIncorrectFactory());
+    CodecRegistry.getInstance().updateCoders(userDefinedFactories);
+
+    // check RS coders
+    List<RawErasureCoderFactory> rsCoders = CodecRegistry.getInstance().
+        getCoders(ErasureCodeConstants.RS_CODEC_NAME);
+    assertEquals(3, rsCoders.size());
+    assertTrue(rsCoders.get(0) instanceof NativeRSRawErasureCoderFactory);
+    assertTrue(rsCoders.get(1) instanceof RSRawErasureCoderFactory);
+    assertTrue(rsCoders.get(2) instanceof RSUserDefinedFactory);
+
+    // check RS coder names
+    String[] rsCoderNames = CodecRegistry.getInstance().
+        getCoderNames(ErasureCodeConstants.RS_CODEC_NAME);
+    assertEquals(3, rsCoderNames.length);
+    assertEquals(NativeRSRawErasureCoderFactory.CODER_NAME, rsCoderNames[0]);
+    assertEquals(RSRawErasureCoderFactory.CODER_NAME, rsCoderNames[1]);
+    assertEquals("rs_userDefined", rsCoderNames[2]);
   }
 }

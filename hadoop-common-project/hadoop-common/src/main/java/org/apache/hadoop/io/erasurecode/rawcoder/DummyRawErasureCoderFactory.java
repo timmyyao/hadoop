@@ -48,9 +48,4 @@ public class DummyRawErasureCoderFactory implements RawErasureCoderFactory {
   public String getCodecName() {
     return ErasureCodeConstants.DUMMY_CODEC_NAME;
   }
-
-  @Override
-  public Boolean verifySchema(ECSchema schema, int cellSize) {
-    return true;
-  }
 }

@@ -49,9 +49,4 @@ public class RSRawErasureCoderFactory implements RawErasureCoderFactory {
   public String getCodecName() {
     return ErasureCodeConstants.RS_CODEC_NAME;
   }
-
-  @Override
-  public Boolean verifySchema(ECSchema schema, int cellSize) {
-    return true;
-  }
 }

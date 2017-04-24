@@ -17,12 +17,12 @@
  */
 package org.apache.hadoop.io.erasurecode;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.io.erasurecode.rawcoder.NativeRSRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.NativeXORRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureCoderFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,7 +41,8 @@ import java.util.stream.Collectors;
 @InterfaceAudience.Private
 public final class CodecRegistry {
 
-  private static final Log LOG = LogFactory.getLog(CodecRegistry.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(CodecRegistry.class);
 
   private static CodecRegistry instance = new CodecRegistry();
 
@@ -51,10 +52,21 @@ public final class CodecRegistry {
 
   private Map<String, List<RawErasureCoderFactory>> coderMap;
 
+  private Map<String, String[]> coderNameMap;
+
   private CodecRegistry() {
     coderMap = new HashMap<>();
+    coderNameMap = new HashMap<>();
     final ServiceLoader<RawErasureCoderFactory> coderFactories =
         ServiceLoader.load(RawErasureCoderFactory.class);
+    updateCoders(coderFactories);
+  }
+
+  /**
+   * Update coderMap and coderNameMap with iterable type of coder factories.
+   * @param coderFactories
+   */
+  void updateCoders(Iterable<RawErasureCoderFactory> coderFactories) {
     for (RawErasureCoderFactory coderFactory : coderFactories) {
       String codecName = coderFactory.getCodecName();
       List<RawErasureCoderFactory> coders = coderMap.get(codecName);
@@ -62,18 +74,17 @@ public final class CodecRegistry {
         coders = new ArrayList<>();
         coders.add(coderFactory);
         coderMap.put(codecName, coders);
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Codec registered: codec = " + coderFactory.getCodecName()
-              + ", coder = " + coderFactory.getCoderName());
-        }
+        LOG.debug("Codec registered: codec = " + coderFactory.getCodecName()
+            + ", coder = " + coderFactory.getCoderName());
       } else {
         Boolean hasConflit = false;
         for (RawErasureCoderFactory coder : coders) {
           if (coder.getCoderName().equals(coderFactory.getCoderName())) {
             hasConflit = true;
             LOG.error("Coder " + coderFactory.getClass().getName() +
-                " cannot be registered because its coder name " + coderFactory
-                + " has conflict with " + coder.getClass().getName());
+                " cannot be registered because its coder name " +
+                coderFactory.getCoderName() + " has conflict with " +
+                coder.getClass().getName());
             break;
           }
         }
@@ -86,29 +97,36 @@ public final class CodecRegistry {
           } else {
             coders.add(coderFactory);
           }
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Codec registered: codec = " + coderFactory.getCodecName()
-                + ", coder = " + coderFactory.getCoderName());
-          }
+          LOG.debug("Codec registered: codec = " + coderFactory.getCodecName()
+              + ", coder = " + coderFactory.getCoderName());
         }
       }
+    }
+
+    // update coderNameMap accordingly
+    coderNameMap.clear();
+    for (Map.Entry<String, List<RawErasureCoderFactory>> entry :
+        coderMap.entrySet()) {
+      String codecName = entry.getKey();
+      List<RawErasureCoderFactory> coders = entry.getValue();
+      coderNameMap.put(codecName, coders.stream().
+          map(RawErasureCoderFactory::getCoderName).
+          collect(Collectors.toList()).toArray(new String[0]));
     }
   }
 
   /**
    * Get all coder names of the given codec.
    * @param codecName the name of codec
-   * @return a list of all coder names
+   * @return an array of all coder names
    */
   public String[] getCoderNames(String codecName) {
-    List<RawErasureCoderFactory> coders = coderMap.get(codecName);
-    if (coders == null) {
+    String[] coderNames = coderNameMap.get(codecName);
+    if (coderNames == null) {
       throw new IllegalArgumentException("No available raw coder factory for "
           + codecName);
     }
-    List<String> coderNames = coders.stream().
-        map(RawErasureCoderFactory::getCoderName).collect(Collectors.toList());
-    return coderNames.toArray(new String[0]);
+    return coderNames;
   }
 
   /**

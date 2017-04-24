@@ -49,9 +49,4 @@ public class XORRawErasureCoderFactory implements RawErasureCoderFactory {
   public String getCodecName() {
     return ErasureCodeConstants.XOR_CODEC_NAME;
   }
-
-  @Override
-  public Boolean verifySchema(ECSchema schema, int cellSize) {
-    return true;
-  }
 }

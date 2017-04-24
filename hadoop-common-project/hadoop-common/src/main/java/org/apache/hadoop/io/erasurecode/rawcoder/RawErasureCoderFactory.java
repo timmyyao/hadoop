@@ -54,12 +54,4 @@ public interface RawErasureCoderFactory {
    * @return codec name
    */
   String getCodecName();
-
-  /**
-   * Verify if the EC schema is legal.
-   * @param schema
-   * @param cellSize
-   * @return
-   */
-  Boolean verifySchema(ECSchema schema, int cellSize);
 }

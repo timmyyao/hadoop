@@ -781,8 +781,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           conf.getLong(FS_TRASH_INTERVAL_KEY, FS_TRASH_INTERVAL_DEFAULT),
           checksumType,
           conf.getTrimmed(
-          CommonConfigurationKeysPublic.HADOOP_SECURITY_KEY_PROVIDER_PATH,
-          ""));
+              CommonConfigurationKeysPublic.HADOOP_SECURITY_KEY_PROVIDER_PATH,
+              ""),
+          blockManager.getStoragePolicySuite().getDefaultPolicy().getId());
 
       this.maxFsObjects = conf.getLong(DFS_NAMENODE_MAX_OBJECTS_KEY, 
                                        DFS_NAMENODE_MAX_OBJECTS_DEFAULT);
@@ -843,7 +844,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       
       this.dtSecretManager = createDelegationTokenSecretManager(conf);
       this.dir = new FSDirectory(this, conf);
-      this.snapshotManager = new SnapshotManager(dir);
+      this.snapshotManager = new SnapshotManager(conf, dir);
       this.cacheManager = new CacheManager(this, conf, blockManager);
       this.ecPolicyManager = new ErasureCodingPolicyManager(conf);
       this.topConf = new TopConf(conf);
@@ -2179,14 +2180,14 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   HdfsFileStatus startFile(String src, PermissionStatus permissions,
       String holder, String clientMachine, EnumSet<CreateFlag> flag,
-      boolean createParent, short replication, long blockSize, 
-      CryptoProtocolVersion[] supportedVersions, boolean logRetryCache)
-      throws IOException {
+      boolean createParent, short replication, long blockSize,
+      CryptoProtocolVersion[] supportedVersions, String ecPolicyName,
+      boolean logRetryCache) throws IOException {
 
     HdfsFileStatus status;
     try {
       status = startFileInt(src, permissions, holder, clientMachine, flag,
-          createParent, replication, blockSize, supportedVersions,
+          createParent, replication, blockSize, supportedVersions, ecPolicyName,
           logRetryCache);
     } catch (AccessControlException e) {
       logAuditEvent(false, "create", src);
@@ -2200,8 +2201,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       PermissionStatus permissions, String holder, String clientMachine,
       EnumSet<CreateFlag> flag, boolean createParent, short replication,
       long blockSize, CryptoProtocolVersion[] supportedVersions,
-      boolean logRetryCache)
-      throws IOException {
+      String ecPolicyName, boolean logRetryCache) throws IOException {
     if (NameNode.stateChangeLog.isDebugEnabled()) {
       StringBuilder builder = new StringBuilder();
       builder.append("DIR* NameSystem.startFile: src=").append(src)
@@ -2269,9 +2269,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       dir.writeLock();
       try {
         stat = FSDirWriteFileOp.startFile(this, iip, permissions, holder,
-                                          clientMachine, flag, createParent,
-                                          replication, blockSize, feInfo,
-                                          toRemoveBlocks, logRetryCache);
+            clientMachine, flag, createParent, replication, blockSize, feInfo,
+            toRemoveBlocks, ecPolicyName, logRetryCache);
       } catch (IOException e) {
         skipSync = e instanceof StandbyException;
         throw e;

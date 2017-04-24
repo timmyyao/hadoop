@@ -15,19 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.io.erasurecode.rawcoder;
+package org.apache.hadoop.yarn.server.resourcemanager.monitor.invariants;
 
-import org.junit.Before;
+
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 
 /**
- * Test the legacy raw Reed-solomon coder implemented in Java.
+ * This exception represents the violation of an internal invariant.
  */
-public class TestRSRawCoderLegacy extends TestRSRawCoderBase {
+public class InvariantViolationException extends YarnRuntimeException {
 
-  @Before
-  public void setup() {
-    this.encoderClass = RSRawEncoderLegacy.class;
-    this.decoderClass = RSRawDecoderLegacy.class;
-    setAllowDump(false); // Change to true to allow verbose dump for debugging
+  public InvariantViolationException(String s) {
+    super(s);
+  }
+
+  public InvariantViolationException(String s, Exception e) {
+    super(s, e);
   }
 }

@@ -94,6 +94,7 @@ import org.apache.hadoop.hdfs.protocol.SnapshotDiffReport;
 import org.apache.hadoop.hdfs.protocol.SnapshotDiffReport.DiffReportEntry;
 import org.apache.hadoop.hdfs.protocol.SnapshotDiffReport.DiffType;
 import org.apache.hadoop.hdfs.protocol.SnapshottableDirectoryStatus;
+import org.apache.hadoop.hdfs.protocol.SystemErasureCodingPolicies;
 import org.apache.hadoop.hdfs.protocol.proto.AclProtos.AclEntryProto;
 import org.apache.hadoop.hdfs.protocol.proto.AclProtos.AclEntryProto.AclEntryScopeProto;
 import org.apache.hadoop.hdfs.protocol.proto.AclProtos.AclEntryProto.AclEntryTypeProto;
@@ -1759,7 +1760,8 @@ public class PBHelperClient {
         fs.getEncryptDataTransfer(),
         fs.getTrashInterval(),
         convert(fs.getChecksumType()),
-        fs.hasKeyProviderUri() ? fs.getKeyProviderUri() : null);
+        fs.hasKeyProviderUri() ? fs.getKeyProviderUri() : null,
+        (byte) fs.getPolicyId());
   }
 
   public static List<CryptoProtocolVersionProto> convert(
@@ -1934,6 +1936,7 @@ public class PBHelperClient {
         .setTrashInterval(fs.getTrashInterval())
         .setChecksumType(convert(fs.getChecksumType()))
         .setKeyProviderUri(fs.getKeyProviderUri())
+        .setPolicyId(fs.getDefaultStoragePolicyId())
         .build();
   }
 
@@ -2639,20 +2642,37 @@ public class PBHelperClient {
   }
 
   public static ErasureCodingPolicy convertErasureCodingPolicy(
-      ErasureCodingPolicyProto policy) {
-    return new ErasureCodingPolicy(policy.getName(),
-        convertECSchema(policy.getSchema()),
-        policy.getCellSize(), (byte) policy.getId());
+      ErasureCodingPolicyProto proto) {
+    final byte id = (byte) (proto.getId() & 0xFF);
+    ErasureCodingPolicy policy = SystemErasureCodingPolicies.getByID(id);
+    if (policy == null) {
+      // If it's not a built-in policy, populate from the optional PB fields.
+      // The optional fields are required in this case.
+      Preconditions.checkArgument(proto.hasName(),
+          "Missing name field in ErasureCodingPolicy proto");
+      Preconditions.checkArgument(proto.hasSchema(),
+          "Missing schema field in ErasureCodingPolicy proto");
+      Preconditions.checkArgument(proto.hasCellSize(),
+          "Missing cellsize field in ErasureCodingPolicy proto");
+
+      return new ErasureCodingPolicy(proto.getName(),
+          convertECSchema(proto.getSchema()),
+          proto.getCellSize(), id);
+    }
+    return policy;
   }
 
   public static ErasureCodingPolicyProto convertErasureCodingPolicy(
       ErasureCodingPolicy policy) {
     ErasureCodingPolicyProto.Builder builder = ErasureCodingPolicyProto
         .newBuilder()
-        .setName(policy.getName())
-        .setSchema(convertECSchema(policy.getSchema()))
-        .setCellSize(policy.getCellSize())
         .setId(policy.getId());
+    // If it's not a built-in policy, need to set the optional fields.
+    if (SystemErasureCodingPolicies.getByID(policy.getId()) == null) {
+      builder.setName(policy.getName())
+          .setSchema(convertECSchema(policy.getSchema()))
+          .setCellSize(policy.getCellSize());
+    }
     return builder.build();
   }
 

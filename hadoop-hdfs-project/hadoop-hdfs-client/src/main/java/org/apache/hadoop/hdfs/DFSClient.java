@@ -1190,13 +1190,31 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       long blockSize, Progressable progress, int buffersize,
       ChecksumOpt checksumOpt, InetSocketAddress[] favoredNodes)
       throws IOException {
+    return create(src, permission, flag, createParent, replication, blockSize,
+        progress, buffersize, checksumOpt, favoredNodes, null);
+  }
+
+
+  /**
+   * Same as {@link #create(String, FsPermission, EnumSet, boolean, short, long,
+   * Progressable, int, ChecksumOpt, InetSocketAddress[])} with the addition of
+   * ecPolicyName that is used to specify a specific erasure coding policy
+   * instead of inheriting any policy from this new file's parent directory.
+   * This policy will be persisted in HDFS. A value of null means inheriting
+   * parent groups' whatever policy.
+   */
+  public DFSOutputStream create(String src, FsPermission permission,
+      EnumSet<CreateFlag> flag, boolean createParent, short replication,
+      long blockSize, Progressable progress, int buffersize,
+      ChecksumOpt checksumOpt, InetSocketAddress[] favoredNodes,
+      String ecPolicyName) throws IOException {
     checkOpen();
     final FsPermission masked = applyUMask(permission);
     LOG.debug("{}: masked={}", src, masked);
     final DFSOutputStream result = DFSOutputStream.newStreamForCreate(this,
         src, masked, flag, createParent, replication, blockSize, progress,
         dfsClientConf.createChecksum(checksumOpt),
-        getFavoredNodesStr(favoredNodes));
+        getFavoredNodesStr(favoredNodes), ecPolicyName);
     beginFileLease(result.getFileId(), result);
     return result;
   }
@@ -1249,7 +1267,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     if (result == null) {
       DataChecksum checksum = dfsClientConf.createChecksum(checksumOpt);
       result = DFSOutputStream.newStreamForCreate(this, src, absPermission,
-          flag, createParent, replication, blockSize, progress, checksum, null);
+          flag, createParent, replication, blockSize, progress, checksum,
+          null, null);
     }
     beginFileLease(result.getFileId(), result);
     return result;
@@ -2925,10 +2944,24 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
 
   /**
    * Probe for encryption enabled on this filesystem.
+   * Note (see HDFS-11689):
+   * Not to throw exception in this method since it would break hive.
+   * Hive accesses this method and assumes no exception would be thrown.
+   * Hive should not access DFSClient since it is InterfaceAudience.Private.
+   * Deprecated annotation is added to trigger build warning at hive side.
+   * Request has been made to Hive to remove access to DFSClient.
    * @return true if encryption is enabled
    */
-  public boolean isHDFSEncryptionEnabled() throws IOException{
-    return getKeyProviderUri() != null;
+  @Deprecated
+  public boolean isHDFSEncryptionEnabled() {
+    boolean result = false;
+    try {
+      result = (getKeyProviderUri() != null);
+    } catch (IOException ioe) {
+      DFSClient.LOG.warn("Exception while checking whether encryption zone "
+            + "is supported, assumes it is not supported", ioe);
+    }
+    return result;
   }
 
   /**

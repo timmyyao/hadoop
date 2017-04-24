@@ -19,8 +19,8 @@ package org.apache.hadoop.io.erasurecode;
 
 import org.apache.hadoop.io.erasurecode.rawcoder.NativeRSRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.NativeXORRawErasureCoderFactory;
+import org.apache.hadoop.io.erasurecode.rawcoder.RSLegacyRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.RSRawErasureCoderFactory;
-import org.apache.hadoop.io.erasurecode.rawcoder.RSRawErasureCoderFactoryLegacy;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureDecoder;
 import org.apache.hadoop.io.erasurecode.rawcoder.RawErasureEncoder;
@@ -59,7 +59,7 @@ public class TestCodecRegistry {
     coders = CodecRegistry.getInstance().
             getCoders(ErasureCodeConstants.RS_LEGACY_CODEC_NAME);
     assertEquals(1, coders.size());
-    assertTrue(coders.get(0) instanceof RSRawErasureCoderFactoryLegacy);
+    assertTrue(coders.get(0) instanceof RSLegacyRawErasureCoderFactory);
 
     coders = CodecRegistry.getInstance().
             getCoders(ErasureCodeConstants.XOR_CODEC_NAME);
@@ -85,7 +85,7 @@ public class TestCodecRegistry {
     coderNames = CodecRegistry.getInstance().
         getCoderNames(ErasureCodeConstants.RS_LEGACY_CODEC_NAME);
     assertEquals(1, coderNames.length);
-    assertEquals(RSRawErasureCoderFactoryLegacy.CODER_NAME,
+    assertEquals(RSLegacyRawErasureCoderFactory.CODER_NAME,
         coderNames[0]);
 
     coderNames = CodecRegistry.getInstance().
@@ -110,8 +110,8 @@ public class TestCodecRegistry {
 
     coder = CodecRegistry.getInstance().getCoderByName(
         ErasureCodeConstants.RS_LEGACY_CODEC_NAME,
-        RSRawErasureCoderFactoryLegacy.CODER_NAME);
-    assertTrue(coder instanceof RSRawErasureCoderFactoryLegacy);
+        RSLegacyRawErasureCoderFactory.CODER_NAME);
+    assertTrue(coder instanceof RSLegacyRawErasureCoderFactory);
 
     coder = CodecRegistry.getInstance().getCoderByName(
         ErasureCodeConstants.XOR_CODEC_NAME,

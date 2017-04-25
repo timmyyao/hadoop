@@ -150,7 +150,6 @@ public class TestCodecRegistry {
     }
 
     List<RawErasureCoderFactory> userDefinedFactories = new ArrayList<>();
-    //userDefinedFactories.add(new RSUserDefinedFactory());
     userDefinedFactories.add(new RSUserDefinedIncorrectFactory());
     CodecRegistry.getInstance().updateCoders(userDefinedFactories);
 

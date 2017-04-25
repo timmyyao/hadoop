@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.io.erasurecode;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.io.erasurecode.rawcoder.NativeRSRawErasureCoderFactory;
 import org.apache.hadoop.io.erasurecode.rawcoder.NativeXORRawErasureCoderFactory;
@@ -66,6 +67,7 @@ public final class CodecRegistry {
    * Update coderMap and coderNameMap with iterable type of coder factories.
    * @param coderFactories
    */
+  @VisibleForTesting
   void updateCoders(Iterable<RawErasureCoderFactory> coderFactories) {
     for (RawErasureCoderFactory coderFactory : coderFactories) {
       String codecName = coderFactory.getCodecName();
@@ -74,17 +76,16 @@ public final class CodecRegistry {
         coders = new ArrayList<>();
         coders.add(coderFactory);
         coderMap.put(codecName, coders);
-        LOG.debug("Codec registered: codec = " + coderFactory.getCodecName()
-            + ", coder = " + coderFactory.getCoderName());
+        LOG.debug("Codec registered: codec = {}, coder = {}",
+            coderFactory.getCodecName(), coderFactory.getCoderName());
       } else {
         Boolean hasConflit = false;
         for (RawErasureCoderFactory coder : coders) {
           if (coder.getCoderName().equals(coderFactory.getCoderName())) {
             hasConflit = true;
-            LOG.error("Coder " + coderFactory.getClass().getName() +
-                " cannot be registered because its coder name " +
-                coderFactory.getCoderName() + " has conflict with " +
-                coder.getClass().getName());
+            LOG.error("Coder {} cannot be registered because its coder name " +
+                "{} has conflict with {}", coderFactory.getClass().getName(),
+                coderFactory.getCoderName(), coder.getClass().getName());
             break;
           }
         }
@@ -97,8 +98,8 @@ public final class CodecRegistry {
           } else {
             coders.add(coderFactory);
           }
-          LOG.debug("Codec registered: codec = " + coderFactory.getCodecName()
-              + ", coder = " + coderFactory.getCoderName());
+          LOG.debug("Codec registered: codec = {}, coder = {}",
+              coderFactory.getCodecName(), coderFactory.getCoderName());
         }
       }
     }

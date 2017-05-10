@@ -6857,6 +6857,21 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   /**
+   * Remove an erasure coding policy.
+   * @param ecPolicyName the name of the policy to be removed
+   * @throws IOException
+   */
+  void removeErasureCodingPolicy(String ecPolicyName) throws IOException {
+    checkOperation(OperationCategory.WRITE);
+    writeLock();
+    try {
+      FSDirErasureCodingOp.removeErasureCodePolicy(this, ecPolicyName);
+    } finally {
+      writeUnlock("removeErasureCodingPolicy");
+    }
+  }
+
+  /**
    * Unset an erasure coding policy from the given path.
    * @param srcArg  The path of the target directory.
    * @throws AccessControlException  if the caller is not the superuser.

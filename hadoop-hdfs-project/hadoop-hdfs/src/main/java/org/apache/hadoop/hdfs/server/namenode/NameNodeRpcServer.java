@@ -2269,6 +2269,13 @@ public class NameNodeRpcServer implements NamenodeProtocols {
     return namesystem.addECPolicies(policies);
   }
 
+  @Override
+  public void removeErasureCodingPolicy(String ecPolicyName)
+      throws IOException {
+    checkNNStartup();
+    namesystem.removeErasureCodingPolicy(ecPolicyName);
+  }
+
   @Override // ReconfigurationProtocol
   public void startReconfiguration() throws IOException {
     checkNNStartup();

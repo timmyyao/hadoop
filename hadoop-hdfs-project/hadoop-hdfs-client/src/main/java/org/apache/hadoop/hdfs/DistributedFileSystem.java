@@ -2548,6 +2548,17 @@ public class DistributedFileSystem extends FileSystem {
   }
 
   /**
+   * Remove erasure coding policy.
+   *
+   * @param ecPolicyName The name of the policy to be removed.
+   * @throws IOException
+   */
+  public void removeErasureCodingPolicy(String ecPolicyName)
+      throws IOException {
+    dfs.removeErasureCodingPolicy(ecPolicyName);
+  }
+
+  /**
    * Unset the erasure coding policy from the source path.
    *
    * @param path     The directory to unset the policy

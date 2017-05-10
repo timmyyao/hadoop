@@ -87,6 +87,7 @@ import org.apache.hadoop.hdfs.protocol.SystemErasureCodingPolicies;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsDatasetSpi;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
+import org.apache.hadoop.hdfs.server.namenode.ErasureCodingPolicyManager;
 import org.apache.hadoop.hdfs.web.WebHdfsConstants;
 import org.apache.hadoop.io.erasurecode.ECSchema;
 import org.apache.hadoop.net.DNSToSwitchMapping;
@@ -1476,6 +1477,33 @@ public class TestDistributedFileSystem {
       assertFalse(responses[0].isSucceed());
       assertTrue(responses[1].isSucceed());
       assertTrue(responses[1].getPolicy().getId() > 0);
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
+  @Test
+  public void testRemoveErasureCodingPolicy() throws Exception {
+    Configuration conf = getTestConfiguration();
+    MiniDFSCluster cluster = null;
+
+    try {
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      DistributedFileSystem fs = cluster.getFileSystem();
+      ECSchema toAddSchema = new ECSchema("testcodec", 3, 2);
+      ErasureCodingPolicy toAddPolicy =
+          new ErasureCodingPolicy(toAddSchema, 128 * 1024, (byte) 254);
+      String policyName = toAddPolicy.getName();
+      ErasureCodingPolicy[] policies = new ErasureCodingPolicy[]{toAddPolicy};
+      AddingECPolicyResponse[] responses =
+          fs.addErasureCodingPolicies(policies);
+      assertEquals(policyName, ErasureCodingPolicyManager.getInstance().
+          getByName(policyName).getName());
+      fs.removeErasureCodingPolicy(policyName);
+      assertEquals(policyName, ErasureCodingPolicyManager.getInstance().
+         getRemovedPolicies().get(0).getName());
     } finally {
       if (cluster != null) {
         cluster.shutdown();

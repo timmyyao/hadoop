@@ -7092,12 +7092,19 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * @throws IOException
    */
   void removeErasureCodingPolicy(String ecPolicyName) throws IOException {
+    final String operationName = "removeErasureCodingPolicy";
     checkOperation(OperationCategory.WRITE);
+    boolean success = false;
     writeLock();
     try {
       FSDirErasureCodingOp.removeErasureCodePolicy(this, ecPolicyName);
+      success = true;
     } finally {
-      writeUnlock("removeErasureCodingPolicy");
+      writeUnlock(operationName);
+      if (success) {
+        getEditLog().logSync();
+      }
+      logAuditEvent(success, operationName, null, null, null);
     }
   }
 

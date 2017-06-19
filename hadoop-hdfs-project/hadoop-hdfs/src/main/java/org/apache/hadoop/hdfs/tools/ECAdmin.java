@@ -199,7 +199,7 @@ public class ECAdmin extends Configured implements Tool {
     }
   }
 
-  /** Command to get the erasure coding policy for a file or directory */
+  /** Command to get the erasure coding policy for a file or directory. */
   private static class GetECPolicyCommand implements AdminHelper.Command {
     @Override
     public String getName() {
@@ -254,10 +254,12 @@ public class ECAdmin extends Configured implements Tool {
     }
   }
 
-  /** Command to remove an erasure coding policy */
+  /** Command to remove an erasure coding policy. */
   private static class RemoveECPolicyCommand implements AdminHelper.Command {
     @Override
-    public String getName() { return "-removePolicy"; }
+    public String getName() {
+      return "-removePolicy";
+    }
 
     @Override
     public String getShortUsage() {
@@ -299,7 +301,7 @@ public class ECAdmin extends Configured implements Tool {
     }
   }
 
-  /** Command to set the erasure coding policy to a file/directory */
+  /** Command to set the erasure coding policy to a file/directory. */
   private static class SetECPolicyCommand implements AdminHelper.Command {
     @Override
     public String getName() {
@@ -358,7 +360,7 @@ public class ECAdmin extends Configured implements Tool {
     }
   }
 
-  /** Command to unset the erasure coding policy set for a file/directory */
+  /** Command to unset the erasure coding policy set for a file/directory. */
   private static class UnsetECPolicyCommand
       implements AdminHelper.Command {
 

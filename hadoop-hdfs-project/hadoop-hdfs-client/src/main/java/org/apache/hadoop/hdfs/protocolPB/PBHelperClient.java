@@ -58,7 +58,7 @@ import org.apache.hadoop.hdfs.DFSUtilClient;
 import org.apache.hadoop.hdfs.inotify.Event;
 import org.apache.hadoop.hdfs.inotify.EventBatch;
 import org.apache.hadoop.hdfs.inotify.EventBatchList;
-import org.apache.hadoop.hdfs.protocol.AddingECPolicyResponse;
+import org.apache.hadoop.hdfs.protocol.AddECPolicyResponse;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.BlockStoragePolicy;
 import org.apache.hadoop.hdfs.protocol.BlockType;
@@ -76,6 +76,7 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo.DatanodeInfoBuilder;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo.AdminStates;
 import org.apache.hadoop.hdfs.protocol.DatanodeLocalInfo;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
+import org.apache.hadoop.hdfs.protocol.ECBlockGroupsStats;
 import org.apache.hadoop.hdfs.protocol.EncryptionZone;
 import org.apache.hadoop.hdfs.protocol.ErasureCodingPolicy;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
@@ -89,6 +90,8 @@ import org.apache.hadoop.hdfs.protocol.HdfsLocatedFileStatus;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.hdfs.protocol.LocatedStripedBlock;
+import org.apache.hadoop.hdfs.protocol.BlocksStats;
+import org.apache.hadoop.hdfs.protocol.OpenFileEntry;
 import org.apache.hadoop.hdfs.protocol.RollingUpgradeInfo;
 import org.apache.hadoop.hdfs.protocol.RollingUpgradeStatus;
 import org.apache.hadoop.hdfs.protocol.SnapshotDiffReport;
@@ -115,7 +118,10 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.Create
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.DatanodeReportTypeProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.DatanodeStorageReportProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetEditsFromTxidResponseProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetFsECBlockGroupsStatsResponseProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetFsBlocksStatsResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetFsStatsResponseProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.OpenFilesBatchResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RollingUpgradeActionProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RollingUpgradeInfoProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.SafeModeActionProto;
@@ -124,7 +130,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ShortCircuitShmS
 import org.apache.hadoop.hdfs.protocol.proto.EncryptionZonesProtos.EncryptionZoneProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.AccessModeProto;
-import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.AddingECPolicyResponseProto;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.AddECPolicyResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockStoragePolicyProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockTypeProto;
@@ -172,6 +178,7 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage.State;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorageReport;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.protocol.proto.ErasureCodingProtos.CodecProto;
 import org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm.ShmId;
 import org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm.SlotId;
 import org.apache.hadoop.io.EnumSetWritable;
@@ -1248,6 +1255,21 @@ public class PBHelperClient {
         proto.getKeyName());
   }
 
+  public static OpenFilesBatchResponseProto convert(OpenFileEntry
+      openFileEntry) {
+    return OpenFilesBatchResponseProto.newBuilder()
+        .setId(openFileEntry.getId())
+        .setPath(openFileEntry.getFilePath())
+        .setClientName(openFileEntry.getClientName())
+        .setClientMachine(openFileEntry.getClientMachine())
+        .build();
+  }
+
+  public static OpenFileEntry convert(OpenFilesBatchResponseProto proto) {
+    return new OpenFileEntry(proto.getId(), proto.getPath(),
+        proto.getClientName(), proto.getClientMachine());
+  }
+
   public static AclStatus convert(GetAclStatusResponseProto e) {
     AclStatusProto r = e.getResult();
     AclStatus.Builder builder = new AclStatus.Builder();
@@ -1716,12 +1738,31 @@ public class PBHelperClient {
     return result;
   }
 
+  public static BlocksStats convert(
+      GetFsBlocksStatsResponseProto res) {
+    return new BlocksStats(res.getLowRedundancy(),
+        res.getCorruptBlocks(), res.getMissingBlocks(),
+        res.getMissingReplOneBlocks(), res.getBlocksInFuture(),
+        res.getPendingDeletionBlocks());
+  }
+
+  public static ECBlockGroupsStats convert(
+      GetFsECBlockGroupsStatsResponseProto res) {
+    return new ECBlockGroupsStats(res.getLowRedundancy(),
+        res.getCorruptBlocks(), res.getMissingBlocks(),
+        res.getBlocksInFuture(), res.getPendingDeletionBlocks());
+  }
+
   public static DatanodeReportTypeProto convert(DatanodeReportType t) {
     switch (t) {
     case ALL: return DatanodeReportTypeProto.ALL;
     case LIVE: return DatanodeReportTypeProto.LIVE;
     case DEAD: return DatanodeReportTypeProto.DEAD;
     case DECOMMISSIONING: return DatanodeReportTypeProto.DECOMMISSIONING;
+    case ENTERING_MAINTENANCE:
+      return DatanodeReportTypeProto.ENTERING_MAINTENANCE;
+    case IN_MAINTENANCE:
+      return DatanodeReportTypeProto.IN_MAINTENANCE;
     default:
       throw new IllegalArgumentException("Unexpected data type report:" + t);
     }
@@ -2119,12 +2160,50 @@ public class PBHelperClient {
     return result.build();
   }
 
+  public static GetFsBlocksStatsResponseProto convert(
+      BlocksStats blocksStats) {
+    GetFsBlocksStatsResponseProto.Builder result =
+        GetFsBlocksStatsResponseProto.newBuilder();
+    result.setLowRedundancy(
+        blocksStats.getLowRedundancyBlocksStat());
+    result.setCorruptBlocks(
+        blocksStats.getCorruptBlocksStat());
+    result.setMissingBlocks(
+        blocksStats.getMissingReplicaBlocksStat());
+    result.setMissingReplOneBlocks(
+        blocksStats.getMissingReplicationOneBlocksStat());
+    result.setBlocksInFuture(
+        blocksStats.getBytesInFutureBlocksStat());
+    result.setPendingDeletionBlocks(
+        blocksStats.getPendingDeletionBlocksStat());
+    return result.build();
+  }
+
+  public static GetFsECBlockGroupsStatsResponseProto convert(
+      ECBlockGroupsStats ecBlockGroupsStats) {
+    GetFsECBlockGroupsStatsResponseProto.Builder result =
+        GetFsECBlockGroupsStatsResponseProto.newBuilder();
+    result.setLowRedundancy(
+        ecBlockGroupsStats.getLowRedundancyBlockGroupsStat());
+    result.setCorruptBlocks(ecBlockGroupsStats.getCorruptBlockGroupsStat());
+    result.setMissingBlocks(ecBlockGroupsStats.getMissingBlockGroupsStat());
+    result.setBlocksInFuture(
+        ecBlockGroupsStats.getBytesInFutureBlockGroupsStat());
+    result.setPendingDeletionBlocks(
+        ecBlockGroupsStats.getPendingDeletionBlockGroupsStat());
+    return result.build();
+  }
+
   public static DatanodeReportType convert(DatanodeReportTypeProto t) {
     switch (t) {
     case ALL: return DatanodeReportType.ALL;
     case LIVE: return DatanodeReportType.LIVE;
     case DEAD: return DatanodeReportType.DEAD;
     case DECOMMISSIONING: return DatanodeReportType.DECOMMISSIONING;
+    case ENTERING_MAINTENANCE:
+      return DatanodeReportType.ENTERING_MAINTENANCE;
+    case IN_MAINTENANCE:
+      return DatanodeReportType.IN_MAINTENANCE;
     default:
       throw new IllegalArgumentException("Unexpected data type report:" + t);
     }
@@ -2701,10 +2780,17 @@ public class PBHelperClient {
     return builder.build();
   }
 
-  public static AddingECPolicyResponseProto convertAddingECPolicyResponse(
-      AddingECPolicyResponse response) {
-    AddingECPolicyResponseProto.Builder builder =
-        AddingECPolicyResponseProto.newBuilder()
+  public static CodecProto convertErasureCodingCodec(String codec,
+      String coders) {
+    CodecProto.Builder builder = CodecProto.newBuilder()
+        .setCodec(codec).setCoders(coders);
+    return builder.build();
+  }
+
+  public static AddECPolicyResponseProto convertAddECPolicyResponse(
+      AddECPolicyResponse response) {
+    AddECPolicyResponseProto.Builder builder =
+        AddECPolicyResponseProto.newBuilder()
         .setPolicy(convertErasureCodingPolicy(response.getPolicy()))
         .setSucceed(response.isSucceed());
     if (!response.isSucceed()) {
@@ -2713,13 +2799,13 @@ public class PBHelperClient {
     return builder.build();
   }
 
-  public static AddingECPolicyResponse convertAddingECPolicyResponse(
-      AddingECPolicyResponseProto proto) {
+  public static AddECPolicyResponse convertAddECPolicyResponse(
+      AddECPolicyResponseProto proto) {
     ErasureCodingPolicy policy = convertErasureCodingPolicy(proto.getPolicy());
     if (proto.getSucceed()) {
-      return new AddingECPolicyResponse(policy);
+      return new AddECPolicyResponse(policy);
     } else {
-      return new AddingECPolicyResponse(policy, proto.getErrorMsg());
+      return new AddECPolicyResponse(policy, proto.getErrorMsg());
     }
   }
 

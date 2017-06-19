@@ -25,6 +25,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,6 +33,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
 import org.apache.hadoop.HadoopIllegalArgumentException;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.XAttr;
 import org.apache.hadoop.fs.XAttrSetFlag;
 import org.apache.hadoop.fs.permission.FsAction;
@@ -39,10 +41,10 @@ import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.XAttrHelper;
 import org.apache.hadoop.hdfs.protocol.IllegalECPolicyException;
 import org.apache.hadoop.hdfs.protocol.ErasureCodingPolicy;
-import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.server.namenode.FSDirectory.DirOp;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.WritableUtils;
+import org.apache.hadoop.io.erasurecode.CodecRegistry;
 import org.apache.hadoop.security.AccessControlException;
 
 import static org.apache.hadoop.hdfs.server.common.HdfsServerConstants.XATTR_ERASURECODING_POLICY;
@@ -100,12 +102,12 @@ final class FSDirErasureCodingOp {
    *                    directory.
    * @param logRetryCache whether to record RPC ids in editlog for retry
    *          cache rebuilding
-   * @return {@link HdfsFileStatus}
+   * @return {@link FileStatus}
    * @throws IOException
    * @throws HadoopIllegalArgumentException if the policy is not enabled
    * @throws AccessControlException if the user does not have write access
    */
-  static HdfsFileStatus setErasureCodingPolicy(final FSNamesystem fsn,
+  static FileStatus setErasureCodingPolicy(final FSNamesystem fsn,
       final String srcArg, final String ecPolicyName,
       final FSPermissionChecker pc, final boolean logRetryCache)
       throws IOException, AccessControlException {
@@ -179,11 +181,11 @@ final class FSDirErasureCodingOp {
    * @param srcArg The path of the target directory.
    * @param logRetryCache whether to record RPC ids in editlog for retry
    *          cache rebuilding
-   * @return {@link HdfsFileStatus}
+   * @return {@link FileStatus}
    * @throws IOException
    * @throws AccessControlException if the user does not have write access
    */
-  static HdfsFileStatus unsetErasureCodingPolicy(final FSNamesystem fsn,
+  static FileStatus unsetErasureCodingPolicy(final FSNamesystem fsn,
       final String srcArg, final FSPermissionChecker pc,
       final boolean logRetryCache) throws IOException {
     assert fsn.hasWriteLock();
@@ -210,10 +212,10 @@ final class FSDirErasureCodingOp {
     return fsd.getAuditFileInfo(iip);
   }
 
-  static void addErasureCodePolicy(final FSNamesystem fsn,
+  static ErasureCodingPolicy addErasureCodePolicy(final FSNamesystem fsn,
       ErasureCodingPolicy policy) throws IllegalECPolicyException {
     Preconditions.checkNotNull(policy);
-    fsn.getErasureCodingPolicyManager().addPolicy(policy);
+    return fsn.getErasureCodingPolicyManager().addPolicy(policy);
   }
 
   /**
@@ -253,7 +255,7 @@ final class FSDirErasureCodingOp {
 
     final List<XAttr> xattrs = Lists.newArrayListWithCapacity(1);
     xattrs.add(ecXAttr);
-    FSDirXAttrOp.unprotectedRemoveXAttrs(fsd, srcIIP.getPath(), xattrs);
+    FSDirXAttrOp.unprotectedRemoveXAttrs(fsd, srcIIP, xattrs);
     return xattrs;
   }
 
@@ -322,6 +324,18 @@ final class FSDirErasureCodingOp {
       throws IOException {
     assert fsn.hasReadLock();
     return fsn.getErasureCodingPolicyManager().getEnabledPolicies();
+  }
+
+  /**
+   * Get available erasure coding codecs and coders.
+   *
+   * @param fsn namespace
+   * @return {@link java.util.HashMap} array
+   */
+  static HashMap<String, String> getErasureCodingCodecs(final FSNamesystem fsn)
+      throws IOException {
+    assert fsn.hasReadLock();
+    return CodecRegistry.getInstance().getCodec2CoderCompactMap();
   }
 
   private static ErasureCodingPolicy getErasureCodingPolicyForPath(

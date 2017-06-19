@@ -4140,12 +4140,53 @@ public abstract class FileSystem extends Configured implements Closeable {
     return GlobalStorageStatistics.INSTANCE;
   }
 
+  private static final class FileSystemDataOutputStreamBuilder extends
+      FSDataOutputStreamBuilder<FSDataOutputStream,
+        FileSystemDataOutputStreamBuilder> {
+
+    /**
+     * Constructor.
+     */
+    protected FileSystemDataOutputStreamBuilder(FileSystem fileSystem, Path p) {
+      super(fileSystem, p);
+    }
+
+    @Override
+    public FSDataOutputStream build() throws IOException {
+      return getFS().create(getPath(), getPermission(), getFlags(),
+          getBufferSize(), getReplication(), getBlockSize(), getProgress(),
+          getChecksumOpt());
+    }
+
+    @Override
+    protected FileSystemDataOutputStreamBuilder getThisBuilder() {
+      return this;
+    }
+  }
+
   /**
    * Create a new FSDataOutputStreamBuilder for the file with path.
+   * Files are overwritten by default.
+   *
    * @param path file path
    * @return a FSDataOutputStreamBuilder object to build the file
+   *
+   * HADOOP-14384. Temporarily reduce the visibility of method before the
+   * builder interface becomes stable.
    */
-  public FSDataOutputStreamBuilder newFSDataOutputStreamBuilder(Path path) {
-    return new FSDataOutputStreamBuilder(this, path);
+  @InterfaceAudience.Private
+  protected FSDataOutputStreamBuilder createFile(Path path) {
+    return new FileSystemDataOutputStreamBuilder(this, path)
+        .create().overwrite(true);
+  }
+
+  /**
+   * Create a Builder to append a file.
+   * @param path file path.
+   * @return a {@link FSDataOutputStreamBuilder} to build file append request.
+   */
+  @InterfaceAudience.Private
+  protected FSDataOutputStreamBuilder appendFile(Path path) {
+    return new FileSystemDataOutputStreamBuilder(this, path).append();
   }
 }

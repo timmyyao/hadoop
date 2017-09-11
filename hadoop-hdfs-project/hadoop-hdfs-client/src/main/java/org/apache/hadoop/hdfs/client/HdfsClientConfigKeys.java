@@ -359,6 +359,18 @@ public interface HdfsClientConfigKeys {
     long    REPLICA_STALE_THRESHOLD_MS_DEFAULT = 30*MINUTE;
   }
 
+  /** dfs.client.localwrite configuration properties */
+  interface LocalWrite {
+    String PREFIX = HdfsClientConfigKeys.PREFIX + "localwrite.";
+    String DFS_CLIENT_LOCALWRITE_BYTEBUFFER_QUEUE_SIZE_KEY = PREFIX +
+        "bytebuffer.queue.size";
+    int DFS_CLIENT_LOCALWRITE_BYTEBUFFER_QUEUE_SIZE_DEFAULT = 100;
+
+    String DFS_CLIENT_LOCALWRITE_BYTEBUFFER_PER_SIZE_KEY = PREFIX +
+        "bytebuffer.per.size";
+    int DFS_CLIENT_LOCALWRITE_BYTEBUFFER_PER_SIZE_DEFAULT = 1024 * 100;
+  }
+
   /** dfs.client.mmap configuration properties */
   interface Mmap {
     String PREFIX = HdfsClientConfigKeys.PREFIX + "mmap.";

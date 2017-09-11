@@ -127,7 +127,7 @@ import org.slf4j.LoggerFactory;
  *
  ***************************************************/
 @InterfaceAudience.Private
-class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
+public class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   static final Logger LOG = LoggerFactory.getLogger(FsDatasetImpl.class);
   private final static boolean isNativeIOAvailable;
   private Timer timer;
@@ -1686,6 +1686,21 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       volumeMap.add(bpid, newReplicaInfo);
       return newReplicaInfo;
     }
+  }
+
+  public synchronized FinalizedReplica finalizeScwBlock(String bpid,
+      ReplicaInfo replica, Block block) throws IOException {
+    FsVolumeImpl v = (FsVolumeImpl) replica.getVolume();
+    if (v == null) {
+      throw new IOException("No volume for temporary file " +
+          replica.getBlockName() + " for block " + replica);
+    }
+    ReplicaInfo newReplicaInfo = v.addFinalizedBlock(bpid, block, replica,
+        replica.getBytesReserved());
+
+    volumeMap.add(bpid, newReplicaInfo);
+
+    return (FinalizedReplica)newReplicaInfo;
   }
 
   /**

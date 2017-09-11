@@ -76,6 +76,7 @@ import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_SHORT_CIRCU
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_SHORT_CIRCUIT_SHARED_MEMORY_WATCHER_INTERRUPT_CHECK_MS_DEFAULT;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.Failover;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.HedgedRead;
+import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.LocalWrite;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.Mmap;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.Read;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.Retry;
@@ -605,6 +606,9 @@ public class DfsClientConf {
 
     private final long keyProviderCacheExpiryMs;
 
+    private final int byteBufferQueueSize;
+    private final int byteBufferPerSize;
+
     public ShortCircuitConf(Configuration conf) {
       socketCacheCapacity = conf.getInt(
           DFS_CLIENT_SOCKET_CACHE_CAPACITY_KEY,
@@ -612,6 +616,13 @@ public class DfsClientConf {
       socketCacheExpiry = conf.getLong(
           DFS_CLIENT_SOCKET_CACHE_EXPIRY_MSEC_KEY,
           DFS_CLIENT_SOCKET_CACHE_EXPIRY_MSEC_DEFAULT);
+
+      byteBufferQueueSize = conf.getInt(
+          LocalWrite.DFS_CLIENT_LOCALWRITE_BYTEBUFFER_QUEUE_SIZE_KEY,
+          LocalWrite.DFS_CLIENT_LOCALWRITE_BYTEBUFFER_QUEUE_SIZE_DEFAULT);
+      byteBufferPerSize = conf.getInt(
+          LocalWrite.DFS_CLIENT_LOCALWRITE_BYTEBUFFER_PER_SIZE_KEY,
+          LocalWrite.DFS_CLIENT_LOCALWRITE_BYTEBUFFER_PER_SIZE_DEFAULT);
 
       useLegacyBlockReaderLocal = conf.getBoolean(
           DFS_CLIENT_USE_LEGACY_BLOCKREADERLOCAL,
@@ -701,6 +712,10 @@ public class DfsClientConf {
 
     public boolean isUseLegacyBlockReaderLocal() {
       return useLegacyBlockReaderLocal;
+    }
+
+    public int getByteBufferQueueSize() {
+      return byteBufferQueueSize;
     }
 
     public String getDomainSocketPath() {

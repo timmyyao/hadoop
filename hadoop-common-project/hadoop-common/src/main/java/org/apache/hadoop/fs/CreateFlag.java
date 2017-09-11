@@ -68,22 +68,22 @@ public enum CreateFlag {
    * Create a file. See javadoc for more description
    * already exists
    */
-  CREATE((short) 0x01),
+  CREATE(0x01),
 
   /**
    * Truncate/overwrite a file. Same as POSIX O_TRUNC. See javadoc for description.
    */
-  OVERWRITE((short) 0x02),
+  OVERWRITE(0x02),
 
   /**
    * Append to a file. See javadoc for more description.
    */
-  APPEND((short) 0x04),
+  APPEND(0x04),
 
   /**
    * Force closed blocks to disk. Similar to POSIX O_SYNC. See javadoc for description.
    */
-  SYNC_BLOCK((short) 0x08),
+  SYNC_BLOCK(0x08),
 
   /**
    * Create the block on transient storage (RAM) if available. If
@@ -97,34 +97,39 @@ public enum CreateFlag {
    * This flag must only be used for intermediate data whose loss can be
    * tolerated by the application.
    */
-  LAZY_PERSIST((short) 0x10),
+  LAZY_PERSIST(0x10),
 
   /**
    * Append data to a new block instead of the end of the last partial block.
    * This is only useful for APPEND.
    */
-  NEW_BLOCK((short) 0x20),
+  NEW_BLOCK(0x20),
 
   /**
    * Advise that a block replica NOT be written to the local DataNode where
    * 'local' means the same host as the client is being run on.
    */
   @InterfaceAudience.LimitedPrivate({"HBase"})
-  NO_LOCAL_WRITE((short) 0x40),
+  NO_LOCAL_WRITE(0x40),
 
   /**
    * Enforce the file to be a replicated file, no matter what its parent
    * directory's replication or erasure coding policy is.
    */
-  SHOULD_REPLICATE((short) 0x80);
+  SHOULD_REPLICATE(0x80),
 
-  private final short mode;
+  /**
+   * Enable short-circuit write.
+   */
+  SHORT_CIRCUIT_WRITE(0x100);
 
-  private CreateFlag(short mode) {
+  private final int mode;
+
+  private CreateFlag(int mode) {
     this.mode = mode;
   }
 
-  short getMode() {
+  int getMode() {
     return mode;
   }
   

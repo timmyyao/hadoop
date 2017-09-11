@@ -391,6 +391,9 @@ public class DataNode extends ReconfigurableBase
   private static final double CONGESTION_RATIO = 1.5;
   private DiskBalancer diskBalancer;
 
+  ShortCircuitWriteServer scwServer = null;
+  Thread scwServerThread;
+
   @Nullable
   private final StorageLocationChecker storageLocationChecker;
 
@@ -1339,6 +1342,26 @@ public class DataNode extends ReconfigurableBase
     return this.cacheReportsDisabledForTests;
   }
 
+  private void  initShortCircuitWriteServer() {
+//    this.scwThreadGroup = new ThreadGroup("ShortCircuitWriteServer");
+    scwServer = new ShortCircuitWriteServer(this, getConf());
+  }
+
+  private void startShortCircuitWriteServer() {
+    scwServer.init();
+    scwServerThread = new Thread(scwServer);
+    scwServerThread.start();
+  }
+
+  private void stopShortCircuitWriteServer() {
+    scwServer.shutdownServer();
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+    }
+    //scwServerThread.interrupt();
+  }
+
   /**
    * This method starts the data node with the specified conf.
    * 
@@ -1399,6 +1422,7 @@ public class DataNode extends ReconfigurableBase
     // global DN settings
     registerMXBean();
     initDataXceiver();
+    initShortCircuitWriteServer();
     startInfoServer();
     pauseMonitor = new JvmPauseMonitor();
     pauseMonitor.init(getConf());
@@ -1987,6 +2011,7 @@ public class DataNode extends ReconfigurableBase
         LOG.trace("Exception interrupting DataXceiverServer: ", e);
       }
     }
+    stopShortCircuitWriteServer();
 
     // Record the time of initial notification
     long timeNotified = Time.monotonicNow();
@@ -2629,6 +2654,8 @@ public class DataNode extends ReconfigurableBase
     ipcServer.setTracer(tracer);
     ipcServer.start();
     startPlugins(getConf());
+
+    startShortCircuitWriteServer();
   }
 
   /**

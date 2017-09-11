@@ -31,11 +31,14 @@ import java.io.PrintStream;
 import java.text.DecimalFormat;
 import java.util.Collection;
 import java.util.Date;
+import java.util.EnumSet;
 import java.util.Random;
 import java.util.StringTokenizer;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -61,6 +64,9 @@ import org.apache.hadoop.util.ToolRunner;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import static org.apache.hadoop.fs.CreateFlag.CREATE;
+import static org.apache.hadoop.fs.CreateFlag.SHORT_CIRCUIT_WRITE;
 
 /**
  * Distributed i/o benchmark.
@@ -126,6 +132,7 @@ public class TestDFSIO implements Tool {
   private enum TestType {
     TEST_TYPE_READ("read"),
     TEST_TYPE_WRITE("write"),
+    TEST_TYPE_LOCALWRITE("localwrite"),
     TEST_TYPE_CLEANUP("cleanup"),
     TEST_TYPE_APPEND("append"),
     TEST_TYPE_READ_RANDOM("random read"),
@@ -222,9 +229,6 @@ public class TestDFSIO implements Tool {
         .build();
     FileSystem fs = cluster.getFileSystem();
     bench.createControlFile(fs, DEFAULT_NR_BYTES, DEFAULT_NR_FILES);
-
-    /** Check write here, as it is required for other tests */
-    testWrite();
   }
 
   @AfterClass
@@ -236,14 +240,25 @@ public class TestDFSIO implements Tool {
     cluster.shutdown();
   }
 
-  public static void testWrite() throws Exception {
+  @Test
+  public void testWrite() throws Exception {
     FileSystem fs = cluster.getFileSystem();
-    long execTime = bench.writeTest(fs);
+    long execTime = bench.writeTest(fs, false);
+    bench.analyzeResult(fs, TestType.TEST_TYPE_WRITE, execTime);
+  }
+
+  @Test (timeout = 10000)
+  public void testLocalWrite() throws Exception {
+    FileSystem fs = cluster.getFileSystem();
+    long execTime = bench.writeTest(fs, true);
     bench.analyzeResult(fs, TestType.TEST_TYPE_WRITE, execTime);
   }
 
   @Test (timeout = 10000)
   public void testRead() throws Exception {
+    /** Check write here, as it is required for other tests */
+    testWrite();
+
     FileSystem fs = cluster.getFileSystem();
     long execTime = bench.readTest(fs);
     bench.analyzeResult(fs, TestType.TEST_TYPE_READ, execTime);
@@ -251,6 +266,9 @@ public class TestDFSIO implements Tool {
 
   @Test (timeout = 10000)
   public void testReadRandom() throws Exception {
+    /** Check write here, as it is required for other tests */
+    testWrite();
+
     FileSystem fs = cluster.getFileSystem();
     bench.getConf().setLong("test.io.skip.size", 0);
     long execTime = bench.randomReadTest(fs);
@@ -259,6 +277,9 @@ public class TestDFSIO implements Tool {
 
   @Test (timeout = 10000)
   public void testReadBackward() throws Exception {
+    /** Check write here, as it is required for other tests */
+    testWrite();
+
     FileSystem fs = cluster.getFileSystem();
     bench.getConf().setLong("test.io.skip.size", -DEFAULT_BUFFER_SIZE);
     long execTime = bench.randomReadTest(fs);
@@ -267,6 +288,9 @@ public class TestDFSIO implements Tool {
 
   @Test (timeout = 10000)
   public void testReadSkip() throws Exception {
+    /** Check write here, as it is required for other tests */
+    testWrite();
+
     FileSystem fs = cluster.getFileSystem();
     bench.getConf().setLong("test.io.skip.size", 1);
     long execTime = bench.randomReadTest(fs);
@@ -275,6 +299,9 @@ public class TestDFSIO implements Tool {
 
   @Test (timeout = 10000)
   public void testAppend() throws Exception {
+    /** Check write here, as it is required for other tests */
+    testWrite();
+
     FileSystem fs = cluster.getFileSystem();
     long execTime = bench.appendTest(fs);
     bench.analyzeResult(fs, TestType.TEST_TYPE_APPEND, execTime);
@@ -282,6 +309,9 @@ public class TestDFSIO implements Tool {
 
   @Test (timeout = 60000)
   public void testTruncate() throws Exception {
+    /** Check write here, as it is required for other tests */
+    testWrite();
+
     FileSystem fs = cluster.getFileSystem();
     bench.createControlFile(fs, DEFAULT_NR_BYTES / 2, DEFAULT_NR_FILES);
     long execTime = bench.truncateTest(fs);
@@ -400,6 +430,32 @@ public class TestDFSIO implements Tool {
   }
 
   /**
+   * Local write mapper class.
+   */
+  public static class LocalWriteMapper extends WriteMapper {
+    @Override
+    public Closeable getIOStream(String name) throws IOException {
+      // create file
+      Path filePath = new Path(getDataDir(getConf()), name);
+      EnumSet<CreateFlag> createFlags = EnumSet.of(CREATE, SHORT_CIRCUIT_WRITE);
+      OutputStream out = fs.create(filePath,
+          FsPermission.getFileDefault(),
+          createFlags,
+          bufferSize,
+          (short) 1,
+          1024,
+          null);
+      if (blockStoragePolicy != null) {
+        fs.setStoragePolicy(filePath, blockStoragePolicy);
+      }
+      if(compressionCodec != null)
+        out = compressionCodec.createOutputStream(out);
+      LOG.info("out = " + out.getClass().getName());
+      return out;
+    }
+  }
+
+  /**
    * Write mapper class.
    */
   public static class WriteMapper extends IOStatMapper {
@@ -414,6 +470,14 @@ public class TestDFSIO implements Tool {
     public Closeable getIOStream(String name) throws IOException {
       // create file
       Path filePath = new Path(getDataDir(getConf()), name);
+      EnumSet<CreateFlag> createFlags = EnumSet.of(CREATE, SHORT_CIRCUIT_WRITE);
+      /*OutputStream out = fs.create(filePath,
+          FsPermission.getFileDefault(),
+          createFlags,
+          bufferSize,
+          (short) 1,
+          1024,
+          null);*/
       OutputStream out = fs.create(filePath, true, bufferSize);
       if (blockStoragePolicy != null) {
         fs.setStoragePolicy(filePath, blockStoragePolicy);
@@ -443,7 +507,7 @@ public class TestDFSIO implements Tool {
     }
   }
 
-  private long writeTest(FileSystem fs) throws IOException {
+  private long writeTest(FileSystem fs, boolean localWrite) throws IOException {
     Path writeDir = getWriteDir(config);
     fs.delete(getDataDir(config), true);
     fs.delete(writeDir, true);
@@ -451,7 +515,11 @@ public class TestDFSIO implements Tool {
     if (isECEnabled()) {
       createAndEnableECOnPath(fs, getDataDir(config));
     }
-    runIOTest(WriteMapper.class, writeDir);
+    if (localWrite) {
+      runIOTest(LocalWriteMapper.class, writeDir);
+    } else {
+      runIOTest(WriteMapper.class, writeDir);
+    }
     long execTime = System.currentTimeMillis() - tStart;
     return execTime;
   }
@@ -714,6 +782,9 @@ public class TestDFSIO implements Tool {
     case TEST_TYPE_WRITE:
       ioer = new WriteMapper();
       break;
+    case TEST_TYPE_LOCALWRITE:
+      ioer = new LocalWriteMapper();
+      break;
     case TEST_TYPE_APPEND:
       ioer = new AppendMapper();
       break;
@@ -774,6 +845,8 @@ public class TestDFSIO implements Tool {
         testType = TestType.TEST_TYPE_READ;
       } else if (args[i].equalsIgnoreCase("-write")) {
         testType = TestType.TEST_TYPE_WRITE;
+      } else if (args[i].equalsIgnoreCase("-localwrite")) {
+        testType = TestType.TEST_TYPE_LOCALWRITE;
       } else if (args[i].equalsIgnoreCase("-append")) {
         testType = TestType.TEST_TYPE_APPEND;
       } else if (args[i].equalsIgnoreCase("-random")) {
@@ -867,7 +940,10 @@ public class TestDFSIO implements Tool {
     long tStart = System.currentTimeMillis();
     switch(testType) {
     case TEST_TYPE_WRITE:
-      writeTest(fs);
+      writeTest(fs, false);
+      break;
+    case TEST_TYPE_LOCALWRITE:
+      writeTest(fs, true);
       break;
     case TEST_TYPE_READ:
       readTest(fs);

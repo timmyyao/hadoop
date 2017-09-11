@@ -1848,7 +1848,7 @@ class DataStreamer extends Daemon {
     }
   }
 
-  private LocatedBlock locateFollowingBlock(DatanodeInfo[] excluded,
+  public LocatedBlock locateFollowingBlock(DatanodeInfo[] excluded,
       ExtendedBlock oldBlock) throws IOException {
     return DFSOutputStream.addBlock(excluded, dfsClient, src, oldBlock,
         stat.getFileId(), favoredNodes, addBlockFlags);

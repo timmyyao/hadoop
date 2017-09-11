@@ -20,9 +20,13 @@ package org.apache.hadoop.hdfs;
 import static org.apache.hadoop.fs.StreamCapabilities.StreamCapability.HFLUSH;
 import static org.apache.hadoop.fs.StreamCapabilities.StreamCapability.HSYNC;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.EnumSet;
@@ -129,6 +133,9 @@ public class DFSOutputStream extends FSOutputSummer
   private FileEncryptionInfo fileEncryptionInfo;
   private int writePacketSize;
 
+  private boolean isShortCircuitWrite = false;
+  protected LocalStreamer localStreamer;
+
   /** Use {@link ByteArrayManager} to create buffer for non-heartbeat packets.*/
   protected DFSPacket createPacket(int packetSize, int chunksPerPkt,
       long offsetInBlock, long seqno, boolean lastPacketInBlock)
@@ -203,6 +210,10 @@ public class DFSOutputStream extends FSOutputSummer
     if (flag.contains(CreateFlag.NO_LOCAL_WRITE)) {
       this.addBlockFlags.add(AddBlockFlag.NO_LOCAL_WRITE);
     }
+
+    if (flag.contains(CreateFlag.SHORT_CIRCUIT_WRITE)) {
+      this.isShortCircuitWrite = true;
+    }
     if (progress != null) {
       DFSClient.LOG.debug("Set non-null progress callback on DFSOutputStream "
           +"{}", src);
@@ -253,6 +264,9 @@ public class DFSOutputStream extends FSOutputSummer
       streamer = new DataStreamer(stat, null, dfsClient, src, progress,
           checksum, cachingStrategy, byteArrayManager, favoredNodes,
           addBlockFlags);
+      if (isShortCircuitWrite) {
+        localStreamer = new LocalStreamer(dfsClient, fileId, streamer);
+      }
     }
   }
 
@@ -345,6 +359,9 @@ public class DFSOutputStream extends FSOutputSummer
           lastBlock != null ? lastBlock.getBlock() : null, dfsClient, src,
           progress, checksum, cachingStrategy, byteArrayManager, favoredNodes,
           addBlockFlags);
+    }
+    if (isShortCircuitWrite) {
+      localStreamer = new LocalStreamer(dfsClient, fileId, streamer);
     }
   }
 
@@ -774,7 +791,30 @@ public class DFSOutputStream extends FSOutputSummer
   }
 
   protected synchronized void start() {
-    getStreamer().start();
+    if (isShortCircuitWrite) {
+      localStreamer.start();
+    } else {
+      getStreamer().start();
+    }
+  }
+
+  @Override
+  public synchronized void write(int b) throws IOException {
+    if (isShortCircuitWrite) {
+      localStreamer.write(b);
+    } else {
+      super.write(b);
+    }
+  }
+
+  @Override
+  public synchronized void write(byte b[], int off, int len)
+      throws IOException {
+    if (isShortCircuitWrite) {
+      localStreamer.write(b, off, len);
+    } else {
+      super.write(b, off, len);
+    }
   }
 
   /**
@@ -836,10 +876,18 @@ public class DFSOutputStream extends FSOutputSummer
   @Override
   public void close() throws IOException {
     final MultipleIOException.Builder b = new MultipleIOException.Builder();
+    if (isShortCircuitWrite) {
+      localStreamer.close();
+    }
     synchronized (this) {
       try (TraceScope ignored = dfsClient.newPathTraceScope(
           "DFSOutputStream#close", src)) {
-        closeImpl();
+        if (isShortCircuitWrite) {
+          completeFile(localStreamer.getBlock());
+          closed = true;
+        } else {
+          closeImpl();
+        }
       } catch (IOException e) {
         b.add(e);
       }

@@ -89,9 +89,8 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_KEY;
 import static org.apache.hadoop.hdfs.server.namenode.FSDirStatAndListingOp.*;
 
-import org.apache.hadoop.crypto.key.KeyProvider.KeyVersion;
-import org.apache.hadoop.hdfs.protocol.BlocksStats;
-import org.apache.hadoop.hdfs.protocol.ECBlockGroupsStats;
+import org.apache.hadoop.hdfs.protocol.ReplicatedBlockStats;
+import org.apache.hadoop.hdfs.protocol.ECBlockGroupStats;
 import org.apache.hadoop.hdfs.protocol.OpenFileEntry;
 import org.apache.hadoop.hdfs.protocol.ZoneReencryptionStatus;
 import org.apache.hadoop.hdfs.server.namenode.metrics.ReplicatedBlocksMBean;
@@ -202,7 +201,6 @@ import org.apache.hadoop.hdfs.protocol.HdfsConstants.DatanodeReportType;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.ReencryptAction;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.SafeModeAction;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
-import org.apache.hadoop.hdfs.protocol.IllegalECPolicyException;
 import org.apache.hadoop.hdfs.protocol.LastBlockWithStatus;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
@@ -1159,9 +1157,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       dir.setINodeAttributeProvider(inodeAttributeProvider);
     }
     snapshotManager.registerMXBean();
-    InetSocketAddress serviceAddress = NameNode.getServiceAddress(conf, true);
-    this.nameNodeHostName = (serviceAddress != null) ?
-        serviceAddress.getHostName() : "";
+    InetSocketAddress serviceAddress = NameNode.getServiceAddress(conf);
+    this.nameNodeHostName = serviceAddress.getHostName();
   }
   
   /** 
@@ -4082,10 +4079,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * Get statistics pertaining to blocks of type {@link BlockType#CONTIGUOUS}
    * in the filesystem.
    * <p>
-   * @see ClientProtocol#getBlocksStats()
+   * @see ClientProtocol#getReplicatedBlockStats()
    */
-  BlocksStats getBlocksStats() {
-    return new BlocksStats(getLowRedundancyReplicatedBlocks(),
+  ReplicatedBlockStats getReplicatedBlockStats() {
+    return new ReplicatedBlockStats(getLowRedundancyReplicatedBlocks(),
         getCorruptReplicatedBlocks(), getMissingReplicatedBlocks(),
         getMissingReplicationOneBlocks(), getBytesInFutureReplicatedBlocks(),
         getPendingDeletionReplicatedBlocks());
@@ -4095,12 +4092,12 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * Get statistics pertaining to blocks of type {@link BlockType#STRIPED}
    * in the filesystem.
    * <p>
-   * @see ClientProtocol#getECBlockGroupsStats()
+   * @see ClientProtocol#getECBlockGroupStats()
    */
-  ECBlockGroupsStats getECBlockGroupsStats() {
-    return new ECBlockGroupsStats(getLowRedundancyECBlockGroups(),
+  ECBlockGroupStats getECBlockGroupStats() {
+    return new ECBlockGroupStats(getLowRedundancyECBlockGroups(),
         getCorruptECBlockGroups(), getMissingECBlockGroups(),
-        getBytesInFutureECBlockGroups(), getPendingDeletionECBlockGroups());
+        getBytesInFutureECBlockGroups(), getPendingDeletionECBlocks());
   }
 
   @Override // FSNamesystemMBean
@@ -4713,10 +4710,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   @Override // ECBlockGroupsMBean
-  @Metric({"PendingDeletionECBlockGroups", "Number of erasure coded block " +
-      "groups that are pending deletion"})
-  public long getPendingDeletionECBlockGroups() {
-    return blockManager.getPendingDeletionECBlockGroups();
+  @Metric({"PendingDeletionECBlocks", "Number of erasure coded blocks " +
+      "that are pending deletion"})
+  public long getPendingDeletionECBlocks() {
+    return blockManager.getPendingDeletionECBlocks();
   }
 
   @Override
@@ -4995,6 +4992,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   boolean isFileDeleted(INodeFile file) {
+    assert hasReadLock();
     // Not in the inodeMap or in the snapshot but marked deleted.
     if (dir.getInode(file.getId()) == null) {
       return true;
@@ -7105,34 +7103,48 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       throw new IOException("No key provider configured, re-encryption "
           + "operation is rejected");
     }
-    FSPermissionChecker pc = getPermissionChecker();
-    // get keyVersionName out of the lock. This keyVersionName will be used
-    // as the target keyVersion for the entire re-encryption.
-    // This means all edek's keyVersion will be compared with this one, and
-    // kms is only contacted if the edek's keyVersion is different.
-    final KeyVersion kv =
-        FSDirEncryptionZoneOp.getLatestKeyVersion(dir, zone, pc);
-    provider.invalidateCache(kv.getName());
+    String keyVersionName = null;
+    if (action == ReencryptAction.START) {
+      // get zone's latest key version name out of the lock.
+      keyVersionName = FSDirEncryptionZoneOp.getCurrentKeyVersion(dir, zone);
+      if (keyVersionName == null) {
+        throw new IOException("Failed to get key version name for " + zone);
+      }
+      LOG.info("Re-encryption using key version " + keyVersionName
+          + " for zone " + zone);
+    }
     writeLock();
     try {
       checkSuperuserPrivilege();
       checkOperation(OperationCategory.WRITE);
-      checkNameNodeSafeMode(
-          "NameNode in safemode, cannot " + action + " re-encryption on zone "
-              + zone);
-      switch (action) {
-      case START:
-        FSDirEncryptionZoneOp
-            .reencryptEncryptionZone(dir, zone, kv.getVersionName(),
-                logRetryCache);
-        break;
-      case CANCEL:
-        FSDirEncryptionZoneOp
-            .cancelReencryptEncryptionZone(dir, zone, logRetryCache);
-        break;
-      default:
-        throw new IOException(
-            "Re-encryption action " + action + " is not supported");
+      checkNameNodeSafeMode("NameNode in safemode, cannot " + action
+          + " re-encryption on zone " + zone);
+      final FSPermissionChecker pc = dir.getPermissionChecker();
+      List<XAttr> xattrs;
+      dir.writeLock();
+      try {
+        final INodesInPath iip = dir.resolvePath(pc, zone, DirOp.WRITE);
+        if (iip.getLastINode() == null) {
+          throw new FileNotFoundException(zone + " does not exist.");
+        }
+        switch (action) {
+        case START:
+          xattrs = FSDirEncryptionZoneOp
+              .reencryptEncryptionZone(dir, iip, keyVersionName);
+          break;
+        case CANCEL:
+          xattrs =
+              FSDirEncryptionZoneOp.cancelReencryptEncryptionZone(dir, iip);
+          break;
+        default:
+          throw new IOException(
+              "Re-encryption action " + action + " is not supported");
+        }
+      } finally {
+        dir.writeUnlock();
+      }
+      if (xattrs != null && !xattrs.isEmpty()) {
+        getEditLog().logSetXAttrs(zone, xattrs, logRetryCache);
       }
     } finally {
       writeUnlock();
@@ -7196,7 +7208,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
               FSDirErasureCodingOp.addErasureCodePolicy(this, policy);
           addECPolicyName = newPolicy.getName();
           responses.add(new AddECPolicyResponse(newPolicy));
-        } catch (IllegalECPolicyException e) {
+        } catch (HadoopIllegalArgumentException e) {
           responses.add(new AddECPolicyResponse(policy, e));
         }
       }

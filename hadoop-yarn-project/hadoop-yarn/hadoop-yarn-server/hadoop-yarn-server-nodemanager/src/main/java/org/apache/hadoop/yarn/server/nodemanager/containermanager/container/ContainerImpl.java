@@ -185,6 +185,7 @@ public class ContainerImpl implements Container {
   private boolean recoveredAsKilled = false;
   private Context context;
   private ResourceSet resourceSet;
+  private ResourceMappings resourceMappings;
 
   public ContainerImpl(Configuration conf, Dispatcher dispatcher,
       ContainerLaunchContext launchContext, Credentials creds,
@@ -242,6 +243,7 @@ public class ContainerImpl implements Container {
     stateMachine = stateMachineFactory.make(this);
     this.context = context;
     this.resourceSet = new ResourceSet();
+    this.resourceMappings = new ResourceMappings();
   }
 
   private static ContainerRetryContext configureRetryContext(
@@ -282,6 +284,7 @@ public class ContainerImpl implements Container {
     this.remainingRetryAttempts = rcs.getRemainingRetryAttempts();
     this.workDir = rcs.getWorkDir();
     this.logDir = rcs.getLogDir();
+    this.resourceMappings = rcs.getResourceMappings();
   }
 
   private static final ContainerDiagnosticsUpdateTransition UPDATE_DIAGNOSTICS_TRANSITION =
@@ -629,7 +632,8 @@ public class ContainerImpl implements Container {
           getCurrentState(), getResource(), diagnostics.toString(), exitCode,
           containerTokenIdentifier.getPriority(),
           containerTokenIdentifier.getCreationTime(),
-          containerTokenIdentifier.getNodeLabelExpression());
+          containerTokenIdentifier.getNodeLabelExpression(),
+          containerTokenIdentifier.getExecutionType());
     } finally {
       this.readLock.unlock();
     }
@@ -1788,5 +1792,15 @@ public class ContainerImpl implements Container {
         recoveredStatus != RecoveredContainerStatus.REQUESTED &&
         getContainerState() == ContainerState.NEW);
     return isRecovering;
+  }
+
+  /**
+   * Get assigned resource mappings to the container.
+   *
+   * @return Resource Mappings of the container
+   */
+  @Override
+  public ResourceMappings getResourceMappings() {
+    return resourceMappings;
   }
 }

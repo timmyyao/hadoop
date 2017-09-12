@@ -61,8 +61,7 @@
     connecting to this address if it is configured. In the case of HA/Federation where multiple namenodes exist,
     the name service id is added to the name e.g. dfs.namenode.servicerpc-address.ns1
     dfs.namenode.rpc-address.EXAMPLENAMESERVICE
-    The value of this property will take the form of nn-host1:rpc-port.
-    If the value of this property is unset the value of dfs.namenode.rpc-address will be used as the default.
+    The value of this property will take the form of nn-host1:rpc-port. The NameNode's default service RPC port is 9840.
   </description>
 </property>
 
@@ -3933,7 +3932,7 @@
 
 <property>
   <name>dfs.journalnode.enable.sync</name>
-  <value>false</value>
+  <value>true</value>
   <description>
     If true, the journal nodes wil sync with each other. The journal nodes
     will periodically gossip with other journal nodes to compare edit log
@@ -4156,6 +4155,18 @@
   <value></value>
   <description>
     Name of class to use for delegating HDFS authorization.
+  </description>
+</property>
+
+<property>
+  <name>dfs.namenode.inode.attributes.provider.bypass.users</name>
+  <value></value>
+  <description>
+    A list of user principals (in secure cluster) or user names (in insecure
+    cluster) for whom the external attributes provider will be bypassed for all
+    operations. This means file attributes stored in HDFS instead of the
+    external provider will be used for permission checking and be returned when
+    requested.
   </description>
 </property>
 

@@ -78,7 +78,7 @@ public class TestShortCircuitWrite {
           FsPermission.getFileDefault(),
           createFlags,
           bufferLen,
-          (short) 2,
+          (short) 1,
           blockSize,
           null);
 
@@ -97,7 +97,7 @@ public class TestShortCircuitWrite {
       Assert.assertArrayEquals(toWriteBytes, readBytes);
 
       FSDataInputStream inCheck = fs.open(myFile, 1);
-      inCheck.close();
+      //inCheck.close();
     } finally {
       cluster.shutdown();
     }

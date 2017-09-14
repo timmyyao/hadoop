@@ -251,7 +251,7 @@ public class TestDFSIO implements Tool {
   public void testLocalWrite() throws Exception {
     FileSystem fs = cluster.getFileSystem();
     long execTime = bench.writeTest(fs, true);
-    bench.analyzeResult(fs, TestType.TEST_TYPE_WRITE, execTime);
+    bench.analyzeResult(fs, TestType.TEST_TYPE_LOCALWRITE, execTime);
   }
 
   @Test (timeout = 10000)
@@ -1152,6 +1152,7 @@ public class TestDFSIO implements Tool {
   private Path getReduceFilePath(TestType testType) {
     switch(testType) {
     case TEST_TYPE_WRITE:
+    case TEST_TYPE_LOCALWRITE:
       return new Path(getWriteDir(config), "part-00000");
     case TEST_TYPE_APPEND:
       return new Path(getAppendDir(config), "part-00000");

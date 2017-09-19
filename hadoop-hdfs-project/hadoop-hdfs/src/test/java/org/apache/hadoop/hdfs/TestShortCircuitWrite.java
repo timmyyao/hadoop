@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.CreateFlag;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
 import org.apache.hadoop.io.IOUtils;
@@ -54,7 +55,10 @@ public class TestShortCircuitWrite {
   public void setup() throws IOException {
     conf = new HdfsConfiguration();
     conf.setInt(HdfsClientConfigKeys.DFS_BLOCK_SIZE_KEY, blockSize);
-    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+    cluster = new MiniDFSCluster.Builder(conf)
+        .numDataNodes(1)
+        .storageTypes(new StorageType[]{StorageType.DISK, StorageType.SSD})
+        .build();
     fs = cluster.getFileSystem();
 
     cluster.waitActive();
@@ -149,5 +153,55 @@ public class TestShortCircuitWrite {
 //    }
     new Random().nextBytes(bytes);
     return bytes;
+  }
+
+  @Test
+  public void testShortCircuitWriteWithStoragePolicy() throws IOException {
+    ByteBuffer buffer = ByteBuffer.allocate(fileLen);
+    byte[] toWriteBytes = generateBytes(fileLen);
+    buffer.put(toWriteBytes);
+    buffer.flip();
+
+    try {
+      fs.mkdirs(new Path("/test"));
+      fs.setStoragePolicy(new Path("/test"), "ALL_SSD");
+      for (int i = 0; i < 4; i++) {
+        Path myFile = new Path("/test/dir/file" + i);
+        EnumSet<CreateFlag> createFlags = EnumSet.of(CREATE, SHORT_CIRCUIT_WRITE);
+        FSDataOutputStream out = fs.create(myFile,
+            FsPermission.getFileDefault(),
+            createFlags,
+            bufferLen,
+            (short) 1,
+            blockSize,
+            null);
+
+        out.write(buffer.array(), buffer.arrayOffset() + buffer.position(),
+            buffer.remaining());
+        out.close();
+        assertTrue(fs.exists(myFile));
+      }
+
+      fs.mkdirs(new Path("/test2"));
+      fs.setStoragePolicy(new Path("/test2"), "HOT");
+      for (int i = 0; i < 4; i++) {
+        Path myFile2 = new Path("/test2/dir/file" + i);
+        EnumSet<CreateFlag> createFlags2 = EnumSet.of(CREATE, SHORT_CIRCUIT_WRITE);
+        FSDataOutputStream out2 = fs.create(myFile2,
+            FsPermission.getFileDefault(),
+            createFlags2,
+            bufferLen,
+            (short) 1,
+            blockSize,
+            null);
+
+        out2.write(buffer.array(), buffer.arrayOffset() + buffer.position(),
+            buffer.remaining());
+        out2.close();
+        assertTrue(fs.exists(myFile2));
+      }
+    } finally {
+      cluster.shutdown();
+    }
   }
 }

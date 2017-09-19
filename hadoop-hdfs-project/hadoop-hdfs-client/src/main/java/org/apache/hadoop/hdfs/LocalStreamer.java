@@ -32,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
@@ -49,8 +50,10 @@ public class LocalStreamer {
   private SocketChannel socketChannel = null;
 
   private BufferedOutputStream out = null;
+  private FileChannel fileChannel = null;
   private String pathName = null;
 
+  private LocatedBlock locatedBlock = null;
   private ExtendedBlock block = null;
 
   private DataStreamer streamer;
@@ -134,9 +137,9 @@ public class LocalStreamer {
     try {
       perQueueSize = dfsClient.getConf().getShortCircuitConf()
           .getByteBufferQueueSize();
-      LocatedBlock lb = streamer.locateFollowingBlock(null, null);
-      block = lb.getBlock();
-      DatanodeInfo[] nodes = lb.getLocations();
+      locatedBlock = streamer.locateFollowingBlock(null, null);
+      block = locatedBlock.getBlock();
+      DatanodeInfo[] nodes = locatedBlock.getLocations();
       assert  nodes.length == 1 : "To use LocalWrite DataNode Replica " +
           "must be 1.";
       Socket socket1 = createWriteSocketChannel(nodes[0],8899);
@@ -152,6 +155,7 @@ public class LocalStreamer {
     //long begin = Time.monotonicNow();
     if (out != null) {
       out.close();
+      fileChannel.force(true);
     } else {
       File extFile = new File(pathName);
       if (!extFile.exists()) {
@@ -174,7 +178,8 @@ public class LocalStreamer {
     if (out == null) {
       File f = new File(pathName);
       f.createNewFile();
-      OutputStream outputStream = new FileOutputStream(f);
+      FileOutputStream outputStream = new FileOutputStream(f);
+      fileChannel = outputStream.getChannel();
       out = new BufferedOutputStream(outputStream,perQueueSize);
     }
     out.write(b,off,len);

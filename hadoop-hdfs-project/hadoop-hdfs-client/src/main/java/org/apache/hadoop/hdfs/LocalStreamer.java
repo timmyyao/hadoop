@@ -154,8 +154,8 @@ public class LocalStreamer {
   public void close() throws IOException {
     //long begin = Time.monotonicNow();
     if (out != null) {
-      out.close();
       fileChannel.force(true);
+      out.close();
     } else {
       File extFile = new File(pathName);
       if (!extFile.exists()) {

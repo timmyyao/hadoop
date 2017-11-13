@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Array;
 import java.util.Date;
 import java.util.Random;
 import java.util.StringTokenizer;
@@ -116,6 +117,7 @@ public class TestDFSIO implements Tool {
   private static enum TestType {
     TEST_TYPE_READ("read"),
     TEST_TYPE_WRITE("write"),
+    TEST_TYPE_WRITE_RANDOM("random write"),
     TEST_TYPE_CLEANUP("cleanup"),
     TEST_TYPE_APPEND("append"),
     TEST_TYPE_READ_RANDOM("random read"),
@@ -431,12 +433,74 @@ public class TestDFSIO implements Tool {
     }
   }
 
+  /**
+   * Random Write mapper class.
+   */
+  public static class RandomWriteMapper extends IOStatMapper {
+
+    public RandomWriteMapper() {
+    }
+
+    @Override // IOMapperBase
+    public Closeable getIOStream(String name) throws IOException {
+      // create file
+      OutputStream out =
+          fs.create(new Path(getDataDir(getConf()), name), true, bufferSize);
+      if(compressionCodec != null)
+        out = compressionCodec.createOutputStream(out);
+      LOG.info("out = " + out.getClass().getName());
+      return out;
+    }
+
+    @Override // IOMapperBase
+    public Long doIO(Reporter reporter,
+                     String name,
+                     long totalSize // in bytes
+    ) throws IOException {
+      OutputStream out = (OutputStream)this.stream;
+      // write to the file
+      long nrRemaining;
+      for (nrRemaining = totalSize; nrRemaining > 0; nrRemaining -= bufferSize) {
+        buffer = BytesGenerator.get(bufferSize);
+        int curSize = (bufferSize < nrRemaining) ? bufferSize : (int)nrRemaining;
+        out.write(buffer, 0, curSize);
+        reporter.setStatus("writing " + name + "@" +
+            (totalSize - nrRemaining) + "/" + totalSize
+            + " ::host = " + hostName);
+      }
+      return Long.valueOf(totalSize);
+    }
+  }
+
+  static final class BytesGenerator {
+    private static final byte[] CACHE = new byte[] { 0x0, 0x1, 0x2, 0x3, 0x4,
+        0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF };
+    private static final Random rnd = new Random(12345l);
+    private BytesGenerator() {
+    }
+
+    public static byte[] get(int size) {
+      byte[] array = (byte[]) Array.newInstance(byte.class, size);
+      for (int i = 0; i < size; i++)
+        array[i] = CACHE[rnd.nextInt(CACHE.length - 1)];
+      return array;
+    }
+  }
+
   private void writeTest(FileSystem fs) throws IOException {
     Path writeDir = getWriteDir(config);
     fs.delete(getDataDir(config), true);
     fs.delete(writeDir, true);
     
     runIOTest(WriteMapper.class, writeDir);
+  }
+
+  private void randomWriteTest(FileSystem fs) throws IOException {
+    Path writeDir = getWriteDir(config);
+    fs.delete(getDataDir(config), true);
+    fs.delete(writeDir, true);
+
+    runIOTest(RandomWriteMapper.class, writeDir);
   }
   
   private void runIOTest(
@@ -742,6 +806,8 @@ public class TestDFSIO implements Tool {
         testType = TestType.TEST_TYPE_READ;
       } else if (args[i].equals("-write")) {
         testType = TestType.TEST_TYPE_WRITE;
+      } else if (args[i].equals("-randomwrite")) {
+        testType = TestType.TEST_TYPE_WRITE_RANDOM;
       } else if (args[i].equals("-append")) {
         testType = TestType.TEST_TYPE_APPEND;
       } else if (args[i].equals("-random")) {
@@ -817,6 +883,9 @@ public class TestDFSIO implements Tool {
     switch(testType) {
     case TEST_TYPE_WRITE:
       writeTest(fs);
+      break;
+    case TEST_TYPE_WRITE_RANDOM:
+      randomWriteTest(fs);
       break;
     case TEST_TYPE_READ:
       readTest(fs);

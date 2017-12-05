@@ -307,6 +307,7 @@ public class TeraSort extends Configured implements Tool {
     job.setOutputValueClass(Text.class);
     job.setInputFormatClass(TeraInputFormat.class);
     job.setOutputFormatClass(TeraOutputFormat.class);
+    LOG.info("TeraOutputFormat sync : " + TeraOutputFormat.getFinalSync(job));
     if (useSimplePartitioner) {
       job.setPartitionerClass(SimplePartitioner.class);
     } else {

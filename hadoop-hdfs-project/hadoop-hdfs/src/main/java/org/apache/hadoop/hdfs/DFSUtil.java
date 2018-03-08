@@ -532,7 +532,8 @@ public class DFSUtil {
                                             racks,
                                             blk.getStartOffset(),
                                             blk.getBlockSize(),
-                                            blk.isCorrupt());
+                                            blk.isCorrupt(),
+                                            blk.getStorageTypes());
       idx++;
     }
     return blkLocations;

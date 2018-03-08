@@ -41,6 +41,7 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.mapreduce.security.TokenCache;
 import org.apache.hadoop.net.NetworkTopology;
 import org.apache.hadoop.net.Node;
@@ -307,6 +308,24 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
     return new FileSplit(file, start, length, hosts, inMemoryHosts);
   }
 
+  protected FileSplit makeSplit(Path file, long start, long length,
+       String[] hosts, String[] inMemoryHosts, String[] storageTypesString) {
+    StorageType[] storageTypes = stringToStorageType(storageTypesString);
+    return new FileSplit(file, start, length, hosts, inMemoryHosts, storageTypes);
+  }
+
+  protected FileSplit makeSplit(Path file, long start, long length, String[][] splitHosts)
+      throws IOException {
+    switch (splitHosts.length) {
+      case 3:
+        return makeSplit(file, start, length, splitHosts[0], splitHosts[1], splitHosts[2]);
+      case 2:
+        return makeSplit(file, start, length, splitHosts[0], splitHosts[1]);
+      default:
+        throw new IOException("SplitHosts.length is neither 2 nor 3");
+    }
+  }
+
   /** Splits files returned by {@link #listStatus(JobConf)} when
    * they're too big.*/ 
   public InputSplit[] getSplits(JobConf job, int numSplits)
@@ -351,7 +370,7 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
             String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations,
                 length-bytesRemaining, splitSize, clusterMap);
             splits.add(makeSplit(path, length-bytesRemaining, splitSize,
-                splitHosts[0], splitHosts[1]));
+                splitHosts));
             bytesRemaining -= splitSize;
           }
 
@@ -359,11 +378,11 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
             String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations, length
                 - bytesRemaining, bytesRemaining, clusterMap);
             splits.add(makeSplit(path, length - bytesRemaining, bytesRemaining,
-                splitHosts[0], splitHosts[1]));
+                splitHosts));
           }
         } else {
           String[][] splitHosts = getSplitHostsAndCachedHosts(blkLocations,0,length,clusterMap);
-          splits.add(makeSplit(path, 0, length, splitHosts[0], splitHosts[1]));
+          splits.add(makeSplit(path, 0, length, splitHosts));
         }
       } else { 
         //Create empty hosts array for zero length files
@@ -557,6 +576,25 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
     return getSplitHostsAndCachedHosts(blkLocations, offset, splitSize,
         clusterMap)[0];
   }
+
+// Convert StorageType[] to Sting[]
+  private String[] storageTypeToString(StorageType[] storageTypes) {
+    String[] storageTypesString = new String[storageTypes.length];
+    for (int i = 0; i < storageTypes.length; i++) {
+      //LOG.info("Locality test: " + storageType.toString());
+      storageTypesString[i] = storageTypes[i].toString();
+    }
+    return storageTypesString;
+  }
+
+// Convert String[] to StorageType[]
+  private StorageType[] stringToStorageType(String[] storageTypesString) {
+    StorageType[] storageTypes = new StorageType[storageTypesString.length];
+    for (int i = 0; i < storageTypesString.length; i++) {
+      storageTypes[i] = StorageType.valueOf(storageTypesString[i]);
+    }
+    return storageTypes;
+  }
   
   /** 
    * This function identifies and returns the hosts that contribute 
@@ -583,8 +621,10 @@ public abstract class FileInputFormat<K, V> implements InputFormat<K, V> {
 
     //If this is the only block, just return
     if (bytesInThisBlock >= splitSize) {
+      String[] storageTypesString = storageTypeToString(blkLocations[startIndex].getStorageTypes());
       return new String[][] { blkLocations[startIndex].getHosts(),
-          blkLocations[startIndex].getCachedHosts() };
+          blkLocations[startIndex].getCachedHosts(),
+          storageTypesString};
     }
 
     long bytesInFirstBlock = bytesInThisBlock;

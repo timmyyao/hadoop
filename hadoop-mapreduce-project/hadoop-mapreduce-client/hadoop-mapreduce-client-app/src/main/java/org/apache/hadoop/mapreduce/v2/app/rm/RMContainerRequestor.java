@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -75,14 +76,18 @@ public abstract class RMContainerRequestor extends RMCommunicator {
   //Value->Map
   //Key->Resource Capability
   //Value->ResourceRequest
-  private final Map<Priority, Map<String, Map<Resource, ResourceRequest>>>
+  private final Map<Priority, List<Map<String, Map<Resource, ResourceRequest>>>>
   remoteRequestsTable =
-      new TreeMap<Priority, Map<String, Map<Resource, ResourceRequest>>>();
+      new TreeMap<Priority, List<Map<String, Map<Resource, ResourceRequest>>>>();
+  // number of the hosts of map tasks, used as request order number (used in remoteRequestsTable and asks)
+  private int totalMapHostsNum = 0;
 
   // use custom comparator to make sure ResourceRequest objects differing only in 
   // numContainers dont end up as duplicates
-  private final Set<ResourceRequest> ask = new TreeSet<ResourceRequest>(
-      RESOURCE_REQUEST_COMPARATOR);
+  private final List<Set<ResourceRequest>> asks = new ArrayList<Set<ResourceRequest>>();
+  // use asks[askIndex] for allocating request, increase each time doing makeRemoteRequest()
+  private int askIndex = 0;
+
   private final Set<ContainerId> release = new TreeSet<ContainerId>();
   // pendingRelease holds history or release requests.request is removed only if
   // RM sends completedContainer.
@@ -111,6 +116,56 @@ public abstract class RMContainerRequestor extends RMCommunicator {
 
   public RMContainerRequestor(ClientService clientService, AppContext context) {
     super(clientService, context);
+  }
+
+  static class RequestOrder implements Comparable<RequestOrder>{
+    private int order;
+
+    public RequestOrder() {
+      order = 0;
+    }
+
+    public RequestOrder(int order) {
+      this.order = order;
+    }
+
+    public int getOrder() {
+      return order;
+    }
+
+    public void setOrder(int order) {
+      this.order = order;
+    }
+
+    @Override
+    public int hashCode() {
+      Integer orderVal = new Integer(order);
+      return orderVal.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj)
+        return true;
+      if (obj == null)
+        return false;
+      if (getClass() != obj.getClass())
+        return false;
+      RequestOrder other = (RequestOrder) obj;
+      if (getOrder() != other.getOrder())
+        return false;
+      return true;
+    }
+
+    @Override
+    public int compareTo(RequestOrder other) {
+      return other.getOrder() - this.getOrder();
+    }
+
+    @Override
+    public String toString() {
+      return "RequestOrder = " + getOrder();
+    }
   }
 
   @Private
@@ -193,6 +248,11 @@ public abstract class RMContainerRequestor extends RMCommunicator {
     ResourceBlacklistRequest blacklistRequest =
         ResourceBlacklistRequest.newInstance(new ArrayList<String>(blacklistAdditions),
             new ArrayList<String>(blacklistRemovals));
+    Set<ResourceRequest> ask = asks.get(askIndex);
+    //LOG.info("@makeRemoteRequest() asks[" + askIndex + "]");
+    if (askIndex < asks.size() - 1 && ask.size() > 0) {
+      askIndex ++;
+    }
     AllocateRequest allocateRequest =
         AllocateRequest.newInstance(lastResponseID,
           super.getApplicationProgress(), new ArrayList<ResourceRequest>(ask),
@@ -212,9 +272,19 @@ public abstract class RMContainerRequestor extends RMCommunicator {
           + " finishedContainers=" + numCompletedContainers
           + " resourcelimit=" + availableResources + " knownNMs="
           + clusterNmCount);
+      /*int i = 1;
+      for (ResourceRequest resourceRequest : ask) {
+        LOG.info("@makeRemoteRequest()  ask[" + i + "] :  priority= " + resourceRequest.getPriority()+
+            "; host = " + resourceRequest.getResourceName() +
+            "; numContainer = " + resourceRequest.getNumContainers() +
+            "; relaxLocality = " + resourceRequest.getRelaxLocality());
+        i++;
+      }*/
     }
 
-    ask.clear();
+    for (Set<ResourceRequest> it : asks) {
+      it.clear();
+    }
     release.clear();
 
     if (numCompletedContainers > 0) {
@@ -239,7 +309,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
       ResourceRequest reqLimit = iter.next();
       int limit = reqLimit.getNumContainers();
       Map<String, Map<Resource, ResourceRequest>> remoteRequests =
-          remoteRequestsTable.get(reqLimit.getPriority());
+          remoteRequestsTable.get(reqLimit.getPriority()).get(askIndex);
       Map<Resource, ResourceRequest> reqMap = (remoteRequests != null)
           ? remoteRequests.get(ResourceRequest.ANY) : null;
       ResourceRequest req = (reqMap != null)
@@ -248,6 +318,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
         continue;
       }
       // update an existing ask or send a new one if updating
+      Set<ResourceRequest> ask = asks.get(askIndex);
       if (ask.remove(req) || requestLimitsToUpdate.contains(req)) {
         ResourceRequest newReq = req.getNumContainers() > limit
             ? reqLimit : req;
@@ -264,12 +335,16 @@ public abstract class RMContainerRequestor extends RMCommunicator {
   }
 
   protected void addOutstandingRequestOnResync() {
-    for (Map<String, Map<Resource, ResourceRequest>> rr : remoteRequestsTable
+    for (List<Map<String, Map<Resource, ResourceRequest>>> rr : remoteRequestsTable
         .values()) {
-      for (Map<Resource, ResourceRequest> capabalities : rr.values()) {
-        for (ResourceRequest request : capabalities.values()) {
-          addResourceRequestToAsk(request);
+      int order = 0;
+      for (Map<String, Map<Resource, ResourceRequest>> r : rr) {
+        for (Map<Resource, ResourceRequest> capabalities : r.values()) {
+          for (ResourceRequest request : capabalities.values()) {
+            addResourceRequestToAsk(request, order);
+          }
         }
+        order ++;
       }
     }
     if (!ignoreBlacklisting.get()) {
@@ -341,13 +416,15 @@ public abstract class RMContainerRequestor extends RMCommunicator {
       LOG.info("Blacklisted host " + hostName);
 
       //remove all the requests corresponding to this hostname
-      for (Map<String, Map<Resource, ResourceRequest>> remoteRequests 
+      for (List<Map<String, Map<Resource, ResourceRequest>>> allRemoteRequests
           : remoteRequestsTable.values()){
         //remove from host if no pending allocations
         boolean foundAll = true;
+        Map<String, Map<Resource, ResourceRequest>> remoteRequests = allRemoteRequests.get(askIndex);
         Map<Resource, ResourceRequest> reqMap = remoteRequests.get(hostName);
         if (reqMap != null) {
           for (ResourceRequest req : reqMap.values()) {
+            Set<ResourceRequest> ask = asks.get(askIndex);
             if (!ask.remove(req)) {
               foundAll = false;
               // if ask already sent to RM, we can try and overwrite it if possible.
@@ -360,7 +437,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
 
               zeroedRequest.setNumContainers(0);
               // to be sent to RM on next heartbeat
-              addResourceRequestToAsk(zeroedRequest);
+              addResourceRequestToAsk(zeroedRequest, askIndex);
             }
           }
           // if all requests were still in ask queue
@@ -388,10 +465,16 @@ public abstract class RMContainerRequestor extends RMCommunicator {
   
   protected void addContainerReq(ContainerRequest req) {
     // Create resource requests
+    int order = 0;
+    // Determine totalMapHostsNum according to map task's host number
+    if (req.priority.getPriority() == 20) {
+      totalMapHostsNum = req.hosts.length == 0 ? 1 : req.hosts.length;
+    }
     for (String host : req.hosts) {
       // Data-local
       if (!isNodeBlacklisted(host)) {
-        addResourceRequest(req.priority, host, req.capability);
+        addResourceRequest(req.priority, host, req.capability, new RequestOrder(order));
+        order++;
       }      
     }
 
@@ -406,112 +489,154 @@ public abstract class RMContainerRequestor extends RMCommunicator {
 
   protected void decContainerReq(ContainerRequest req) {
     // Update resource requests
+    int order = 0;
     for (String hostName : req.hosts) {
-      decResourceRequest(req.priority, hostName, req.capability);
+      decResourceRequest(req.priority, hostName, req.capability, new RequestOrder(order));
+      order++;
     }
     
     for (String rack : req.racks) {
-      decResourceRequest(req.priority, rack, req.capability);
+      decResourceRequest(req.priority, rack, req.capability, new RequestOrder(order));
     }
    
-    decResourceRequest(req.priority, ResourceRequest.ANY, req.capability);
+    decResourceRequest(req.priority, ResourceRequest.ANY, req.capability, new RequestOrder(order));
   }
 
   private void addResourceRequest(Priority priority, String resourceName,
       Resource capability) {
-    Map<String, Map<Resource, ResourceRequest>> remoteRequests =
-      this.remoteRequestsTable.get(priority);
-    if (remoteRequests == null) {
-      remoteRequests = new HashMap<String, Map<Resource, ResourceRequest>>();
-      this.remoteRequestsTable.put(priority, remoteRequests);
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Added priority=" + priority);
-      }
-    }
-    Map<Resource, ResourceRequest> reqMap = remoteRequests.get(resourceName);
-    if (reqMap == null) {
-      reqMap = new HashMap<Resource, ResourceRequest>();
-      remoteRequests.put(resourceName, reqMap);
-    }
-    ResourceRequest remoteRequest = reqMap.get(capability);
-    if (remoteRequest == null) {
-      remoteRequest = recordFactory.newRecordInstance(ResourceRequest.class);
-      remoteRequest.setPriority(priority);
-      remoteRequest.setResourceName(resourceName);
-      remoteRequest.setCapability(capability);
-      remoteRequest.setNumContainers(0);
-      reqMap.put(capability, remoteRequest);
-    }
-    remoteRequest.setNumContainers(remoteRequest.getNumContainers() + 1);
+    addResourceRequest(priority, resourceName, capability, new RequestOrder());
+  }
 
-    // Note this down for next interaction with ResourceManager
-    addResourceRequestToAsk(remoteRequest);
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("addResourceRequest:" + " applicationId="
-          + applicationId.getId() + " priority=" + priority.getPriority()
-          + " resourceName=" + resourceName + " numContainers="
-          + remoteRequest.getNumContainers() + " #asks=" + ask.size());
+  private void addResourceRequest(Priority priority, String resourceName,
+      Resource capability, RequestOrder requestOrder) {
+    List<Map<String, Map<Resource, ResourceRequest>>> allRemoteRequests =
+      this.remoteRequestsTable.get(priority);
+    if (allRemoteRequests == null) {
+      allRemoteRequests = new ArrayList<Map<String, Map<Resource, ResourceRequest>>>();
+      // set size = totalMapHostsNum for map requests
+      if (priority.getPriority() == 20) {
+        for (int i = 0; i < totalMapHostsNum; i ++) {
+          allRemoteRequests.add(new HashMap<String, Map<Resource, ResourceRequest>>());
+        }
+      }
+      // set size = 1 for non-map requests
+      else {
+        allRemoteRequests.add(new HashMap<String, Map<Resource, ResourceRequest>>());
+      }
+      this.remoteRequestsTable.put(priority, allRemoteRequests);
+    }
+    for (int order = requestOrder.getOrder(); order < allRemoteRequests.size(); order ++) {
+      Map<String, Map<Resource, ResourceRequest>> remoteRequests = allRemoteRequests.get(order);
+      Map<Resource, ResourceRequest> reqMap = remoteRequests.get(resourceName);
+      if (reqMap == null) {
+        reqMap = new HashMap<Resource, ResourceRequest>();
+        remoteRequests.put(resourceName, reqMap);
+      }
+      ResourceRequest remoteRequest = reqMap.get(capability);
+      if (remoteRequest == null) {
+        remoteRequest = recordFactory.newRecordInstance(ResourceRequest.class);
+        remoteRequest.setPriority(priority);
+        remoteRequest.setResourceName(resourceName);
+        remoteRequest.setCapability(capability);
+        remoteRequest.setNumContainers(0);
+        // For map requests, set locality relaxation of rack-level and any-level to false
+        // in the first totalMapHostsNum-1 times of resource request
+        if (order < allRemoteRequests.size() - 1 && priority.getPriority() == 20 &&
+            (resourceName.equals("/default-rack") || resourceName.equals(ResourceRequest.ANY))) {
+          remoteRequest.setRelaxLocality(false);
+        }
+        reqMap.put(capability, remoteRequest);
+      }
+      remoteRequest.setNumContainers(remoteRequest.getNumContainers() + 1);
+
+      // Note this down for next interaction with ResourceManager
+      addResourceRequestToAsk(remoteRequest, order);
+      if (LOG.isDebugEnabled()) {
+        Set<ResourceRequest> ask = asks.get(order);
+        LOG.debug("addResourceRequest:" + " applicationId="
+            + applicationId.getId() + " priority=" + priority.getPriority()
+            + " resourceName=" + resourceName + " numContainers="
+            + remoteRequest.getNumContainers() + " #asks=" + ask.size());
+      }
     }
   }
 
   private void decResourceRequest(Priority priority, String resourceName,
-      Resource capability) {
-    Map<String, Map<Resource, ResourceRequest>> remoteRequests =
+      Resource capability, RequestOrder requestOrder) {
+    List<Map<String, Map<Resource, ResourceRequest>>> allremoteRequests =
       this.remoteRequestsTable.get(priority);
-    Map<Resource, ResourceRequest> reqMap = remoteRequests.get(resourceName);
-    if (reqMap == null) {
-      // as we modify the resource requests by filtering out blacklisted hosts 
-      // when they are added, this value may be null when being 
-      // decremented
+    for (int order = requestOrder.getOrder(); order < allremoteRequests.size(); order ++) {
+      Map<String, Map<Resource, ResourceRequest>> remoteRequests = allremoteRequests.get(order);
+      Map<Resource, ResourceRequest> reqMap = remoteRequests.get(resourceName);
+      if (reqMap == null) {
+        // as we modify the resource requests by filtering out blacklisted hosts
+        // when they are added, this value may be null when being
+        // decremented
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Not decrementing resource as " + resourceName
+              + " is not present in request table");
+        }
+        return;
+      }
+      ResourceRequest remoteRequest = reqMap.get(capability);
+
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Not decrementing resource as " + resourceName
-            + " is not present in request table");
+        Set<ResourceRequest> ask = asks.get(order);
+        LOG.debug("BEFORE decResourceRequest:" + " applicationId="
+            + applicationId.getId() + " priority=" + priority.getPriority()
+            + " resourceName=" + resourceName + " numContainers="
+            + remoteRequest.getNumContainers() + " #asks=" + ask.size());
       }
-      return;
-    }
-    ResourceRequest remoteRequest = reqMap.get(capability);
 
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("BEFORE decResourceRequest:" + " applicationId="
-          + applicationId.getId() + " priority=" + priority.getPriority()
-          + " resourceName=" + resourceName + " numContainers="
-          + remoteRequest.getNumContainers() + " #asks=" + ask.size());
-    }
-
-    if(remoteRequest.getNumContainers() > 0) {
-      // based on blacklisting comments above we can end up decrementing more 
-      // than requested. so guard for that.
-      remoteRequest.setNumContainers(remoteRequest.getNumContainers() -1);
-    }
-    
-    if (remoteRequest.getNumContainers() == 0) {
-      reqMap.remove(capability);
-      if (reqMap.size() == 0) {
-        remoteRequests.remove(resourceName);
+      if (remoteRequest.getNumContainers() > 0) {
+        // based on blacklisting comments above we can end up decrementing more
+        // than requested. so guard for that.
+        remoteRequest.setNumContainers(remoteRequest.getNumContainers() - 1);
       }
-      if (remoteRequests.size() == 0) {
-        remoteRequestsTable.remove(priority);
+
+      if (remoteRequest.getNumContainers() == 0) {
+        reqMap.remove(capability);
+        if (reqMap.size() == 0) {
+          remoteRequests.remove(resourceName);
+        }
+        if (remoteRequests.size() == 0) {
+          remoteRequestsTable.remove(priority);
+        }
       }
-    }
 
-    // send the updated resource request to RM
-    // send 0 container count requests also to cancel previous requests
-    addResourceRequestToAsk(remoteRequest);
+      // send the updated resource request to RM
+      // send 0 container count requests also to cancel previous requests
+      addResourceRequestToAsk(remoteRequest, order);
 
-    if (LOG.isDebugEnabled()) {
-      LOG.info("AFTER decResourceRequest:" + " applicationId="
-          + applicationId.getId() + " priority=" + priority.getPriority()
-          + " resourceName=" + resourceName + " numContainers="
-          + remoteRequest.getNumContainers() + " #asks=" + ask.size());
+      if (LOG.isDebugEnabled()) {
+        Set<ResourceRequest> ask = asks.get(order);
+        LOG.info("AFTER decResourceRequest:" + " applicationId="
+            + applicationId.getId() + " priority=" + priority.getPriority()
+            + " resourceName=" + resourceName + " numContainers="
+            + remoteRequest.getNumContainers() + " #asks=" + ask.size());
+      }
     }
   }
   
-  private void addResourceRequestToAsk(ResourceRequest remoteRequest) {
+  private void addResourceRequestToAsk(ResourceRequest remoteRequest, int order) {
+    if(order >= asks.size()) {
+      asks.add(new TreeSet<ResourceRequest>(RESOURCE_REQUEST_COMPARATOR));
+    }
     // because objects inside the resource map can be deleted ask can end up 
     // containing an object that matches new resource object but with different
     // numContainers. So existing values must be replaced explicitly
-    ask.remove(remoteRequest);
-    ask.add(remoteRequest);    
+    if (remoteRequest.getPriority().getPriority() == 20) {
+      Set<ResourceRequest> ask = asks.get(order);
+      ask.remove(remoteRequest);
+      ask.add(remoteRequest);
+    }
+    // For non-map requests, request should be added to all asks (order is always 0 for non-map requests)
+    else {
+      for (Set<ResourceRequest> ask : asks) {
+        ask.remove(remoteRequest);
+        ask.add(remoteRequest);
+      }
+    }
   }
 
   protected void release(ContainerId containerId) {
@@ -558,6 +683,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
   @Private
   @VisibleForTesting
   Set<ResourceRequest> getAsk() {
+    Set<ResourceRequest> ask = asks.get(askIndex);
     return ask;
   }
 }

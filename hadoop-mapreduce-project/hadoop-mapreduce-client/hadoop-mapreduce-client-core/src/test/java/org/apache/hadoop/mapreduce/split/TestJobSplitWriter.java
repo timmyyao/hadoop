@@ -26,9 +26,12 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.mapred.SplitLocationInfo;
 import org.apache.hadoop.mapreduce.JobID;
 import org.apache.hadoop.mapreduce.MRConfig;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class TestJobSplitWriter {
@@ -82,5 +85,24 @@ public class TestJobSplitWriter {
     } finally {
       FileUtil.fullyDelete(TEST_DIR);
     }
+  }
+
+  @Test
+  public void testSortLocation() throws Exception {
+    String[] locations = new String[]{"node1", "node2", "node3", "node4", "node5"};
+    SplitLocationInfo[] splitLocationInfos = new SplitLocationInfo[]{
+        new SplitLocationInfo("node1", false, StorageType.DISK),
+        new SplitLocationInfo("node2", false, StorageType.SSD),
+        new SplitLocationInfo("node3", false, StorageType.ARCHIVE),
+        new SplitLocationInfo("node4", false, StorageType.RAM_DISK),
+        new SplitLocationInfo("node5", false, StorageType.DISK)};
+    String[] sortedLocations = JobSplitWriter.sortLocations(locations, splitLocationInfos);
+    Assert.assertEquals("node4", sortedLocations[0]);
+    Assert.assertEquals("node2", sortedLocations[1]);
+    Assert.assertTrue(sortedLocations[2].equals("node1")
+        || sortedLocations[2].equals("node5"));
+    Assert.assertTrue(sortedLocations[3].equals("node1")
+        || sortedLocations[3].equals("node5"));
+    Assert.assertEquals("node3", sortedLocations[4]);
   }
 }

@@ -26,6 +26,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.StorageType;
 
 /** A section of an input file.  Returned by {@link
  * InputFormat#getSplits(JobConf, int)} and passed to
@@ -76,6 +77,21 @@ public class FileSplit extends org.apache.hadoop.mapreduce.InputSplit
    fs = new org.apache.hadoop.mapreduce.lib.input.FileSplit(file, start,
           length, hosts, inMemoryHosts);
  }
+
+  /** Constructs a split with host and cached-blocks and storage type information
+   *
+   * @param file the file name
+   * @param start the position of the first byte in the file to process
+   * @param length the number of bytes in the file to process
+   * @param hosts the list of hosts containing the block
+   * @param inMemoryHosts the list of hosts containing the block in memory
+   * @param storageTypes the storage type of the block
+   */
+  public FileSplit(Path file, long start, long length, String[] hosts,
+      String[] inMemoryHosts, StorageType[] storageTypes) {
+    fs = new org.apache.hadoop.mapreduce.lib.input.FileSplit(file, start,
+        length, hosts, inMemoryHosts, storageTypes);
+  }
   
   public FileSplit(org.apache.hadoop.mapreduce.lib.input.FileSplit fs) {
     this.fs = fs;

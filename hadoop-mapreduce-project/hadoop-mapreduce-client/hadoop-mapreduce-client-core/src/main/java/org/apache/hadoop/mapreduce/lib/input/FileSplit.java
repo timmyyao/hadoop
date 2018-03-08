@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.DataInput;
 import java.io.DataOutput;
 
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.mapred.SplitLocationInfo;
 import org.apache.hadoop.mapreduce.InputFormat;
 import org.apache.hadoop.mapreduce.InputSplit;
@@ -69,9 +70,26 @@ public class FileSplit extends InputSplit implements Writable {
   * @param hosts the list of hosts containing the block
   * @param inMemoryHosts the list of hosts containing the block in memory
   */
+  public FileSplit(Path file, long start, long length, String[] hosts,
+      String[] inMemoryHosts) {
+    this(file, start, length, hosts, inMemoryHosts, new StorageType[0]);
+  }
+
+  /** Constructs a split with host and cached-blocks and storage type information
+   *
+   * @param file the file name
+   * @param start the position of the first byte in the file to process
+   * @param length the number of bytes in the file to process
+   * @param hosts the list of hosts containing the block
+   * @param inMemoryHosts the list of hosts containing the block in memory
+   * @param storageTypes the list of storage types on each host
+   */
  public FileSplit(Path file, long start, long length, String[] hosts,
-     String[] inMemoryHosts) {
+     String[] inMemoryHosts, StorageType[] storageTypes) {
    this(file, start, length, hosts);
+   if (storageTypes != null && storageTypes.length != 0 && storageTypes.length != hosts.length) {
+     throw new RuntimeException("The length of storageType is not equal to hosts");
+   }
    hostInfos = new SplitLocationInfo[hosts.length];
    for (int i = 0; i < hosts.length; i++) {
      // because N will be tiny, scanning is probably faster than a HashSet
@@ -82,7 +100,9 @@ public class FileSplit extends InputSplit implements Writable {
          break;
        }
      }
-     hostInfos[i] = new SplitLocationInfo(hosts[i], inMemory);
+     StorageType storageType = storageTypes != null && storageTypes.length != 0 ?
+         storageTypes[i] : null;
+     hostInfos[i] = new SplitLocationInfo(hosts[i], inMemory, storageType);
    }
  }
  

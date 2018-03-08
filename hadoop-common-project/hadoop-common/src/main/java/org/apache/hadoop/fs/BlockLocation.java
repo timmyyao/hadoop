@@ -37,6 +37,7 @@ public class BlockLocation {
   private long offset;  // Offset of the block in the file
   private long length;
   private boolean corrupt;
+  private StorageType[] storageTypes = null; // Storage type of each replica
 
   private static final String[] EMPTY_STR_ARRAY = new String[0];
 
@@ -118,6 +119,20 @@ public class BlockLocation {
     this.offset = offset;
     this.length = length;
     this.corrupt = corrupt;
+  }
+
+  public BlockLocation(String[] names, String[] hosts, String[] cachedHosts,
+      String[] topologyPaths, long offset, long length, boolean corrupt,
+      StorageType[] storageTypes) {
+    this(names, hosts, cachedHosts, topologyPaths, offset, length, corrupt);
+    this.storageTypes = storageTypes;
+  }
+
+  /**
+   * Get the storage type of each replica of the block.
+   */
+  public StorageType[] getStorageTypes() {
+    return storageTypes;
   }
 
   /**

@@ -162,7 +162,7 @@ public abstract class TaskAttemptImpl implements
   private final org.apache.hadoop.mapred.JobID oldJobId;
   private final TaskAttemptListener taskAttemptListener;
   private final Resource resourceCapability;
-  protected Set<String> dataLocalHosts;
+  protected List<String> dataLocalHosts;
   protected Set<String> dataLocalRacks;
   private final List<String> diagnostics = new ArrayList<String>();
   private final Lock readLock;
@@ -1508,8 +1508,8 @@ public abstract class TaskAttemptImpl implements
     }
   }
 
-  protected Set<String> resolveHosts(String[] src) {
-    Set<String> result = new HashSet<String>();
+  protected List<String> resolveHosts(String[] src) {
+    List<String> result = new ArrayList<>();
     if (src != null) {
       for (int i = 0; i < src.length; i++) {
         if (src[i] == null) {

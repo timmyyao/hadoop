@@ -20,18 +20,25 @@ package org.apache.hadoop.mapreduce.split;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.io.serializer.SerializationFactory;
 import org.apache.hadoop.io.serializer.Serializer;
+import org.apache.hadoop.mapred.InputSplitWithLocationInfo;
+import org.apache.hadoop.mapred.SplitLocationInfo;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.JobSubmissionFiles;
@@ -110,6 +117,27 @@ public class JobSplitWriter {
     out.write(SPLIT_FILE_HEADER);
     out.writeInt(splitVersion);
   }
+
+  @VisibleForTesting
+  static String[] sortLocations(String[] locations,
+      SplitLocationInfo[] splitLocationInfos) {
+    if (splitLocationInfos == null) {
+      return locations;
+    }
+    Map<StorageType, List<String>> locationMap = new HashMap<>();
+    for (StorageType storageType : StorageType.values()) {
+      locationMap.put(storageType, new ArrayList<String>());
+    }
+    for (int i = 0; i < locations.length; i++) {
+      StorageType storageType = splitLocationInfos[i].getStorageType();
+      locationMap.get(storageType).add(locations[i]);
+    }
+    List<String> sortedLocations = new ArrayList<>();
+    for (StorageType storageType : StorageType.values()) {
+      sortedLocations.addAll(locationMap.get(storageType));
+    }
+    return sortedLocations.toArray(new String[0]);
+  }
   
   @SuppressWarnings("unchecked")
   private static <T extends InputSplit> 
@@ -132,7 +160,7 @@ public class JobSplitWriter {
         serializer.open(out);
         serializer.serialize(split);
         long currCount = out.getPos();
-        String[] locations = split.getLocations();
+        String[] locations = sortLocations(split.getLocations(), split.getLocationInfo());
         if (locations.length > maxBlockLocations) {
           LOG.warn("Max block location exceeded for split: "
               + split + " splitsize: " + locations.length +
@@ -163,7 +191,9 @@ public class JobSplitWriter {
         Text.writeString(out, split.getClass().getName());
         split.write(out);
         long currLen = out.getPos();
-        String[] locations = split.getLocations();
+        String[] locations = split instanceof InputSplitWithLocationInfo ?
+            sortLocations(split.getLocations(), ((InputSplitWithLocationInfo) split).getLocationInfo())
+            : split.getLocations();
         if (locations.length > maxBlockLocations) {
           LOG.warn("Max block location exceeded for split: "
               + split + " splitsize: " + locations.length +
